@@ -2,7 +2,7 @@
 
 This repository contains the interactive web map developed for the study:
 
-**Interactive AI-GIS Multi-Criteria Mapping for Fire Station Planning: A Case Study of the City of Mississauga, Canada.**
+**GeoAI and Multi-criteria Evaluation for Risk-informed Urban Fire Station Planning**
 
 ## Overview
 Fire station planning is often evaluated using response time and travel-time coverage (e.g., four-minute targets in urban areas). However, other factors that influence emergency service demand—such as historical incident patterns and population density—are not consistently integrated into planning analysis. This study proposes a multi-criteria AI-GIS evaluation framework that represents key criteria as raster indicators and supports scenario-based comparison for future station planning.
@@ -27,7 +27,7 @@ Indicators are integrated into composite raster surfaces using different weighti
 - **CRITIC**
 - **RF**
 - **XGB**
-- **Manual**
+- **User-defined**
 
 The tool also provides the ability to explore different combinations of indicators across weighting methods and compare results using a baseline option (e.g., setting a baseline configuration and visualizing changes relative to it).
 
