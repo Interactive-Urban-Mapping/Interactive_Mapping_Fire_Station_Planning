@@ -61,7 +61,7 @@ Additional workflow documentation is organized in the `docs/` folder:
 - `geojson_layers.md` — GeoJSON layer documentation
 - `data_dictionary.md` — spatial layer summary
 - `adapting_to_other_cities.md` — workflow adaptation guidance
-- 
+  
 ## Repository Structure
 
 ```text
