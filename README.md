@@ -52,6 +52,18 @@ Composite raster surfaces are generated using:
 - **RF**
 - **XGB**
 - **User-defined weighting**
+  
+## Repository Structure
+
+```text
+Interactive_Mapping_Fire_Station_Planning/
+├── index.html
+├── app.js
+├── README.md
+├── LICENSE
+├── assets/
+└── data/
+```
 
 ## Documentation
 
@@ -61,21 +73,9 @@ Additional workflow documentation is organized in the `docs/` folder:
 - `geojson_layers.md` — GeoJSON layer documentation
 - `data_dictionary.md` — spatial layer summary
 - `adapting_to_other_cities.md` — workflow adaptation guidance
-  
-## Repository Structure
 
-```text
-Interactive_Mapping_Fire_Station_Planning/
-├── index.html          # Main webmap page and user interface
-├── app.js              # Leaflet map logic, layer controls, charts, and interactive functions
-├── README.md           # Repository overview and usage notes
-├── LICENSE             # Open-source license
-├── assets/             # Interface images and supporting visual assets
-└── data/               # Processed visualization layers and model-weight files
-    ├── raster tile folders
-    ├── value tile folders
-    ├── GeoJSON layers
-    ├── scenario coverage layers
-    ├── weights_critic.json
-    ├── weights_rf.json
-    └── weights_xgb.json
+## Supplementary Data
+
+Spatial datasets used in this study are publicly available through the [City of Mississauga Open Data Portal](https://data.mississauga.ca/).
+
+Raw operational incident records are not redistributed because of data-access restrictions. The repository provides processed visualization layers and model-weight files required to reproduce the interactive mapping interface and scenario comparison workflow.
