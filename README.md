@@ -53,6 +53,15 @@ Composite raster surfaces are generated using:
 - **XGB**
 - **User-defined weighting**
 
+## Documentation
+
+Additional workflow documentation is organized in the `docs/` folder:
+
+- `tile_generation.md` — raster tile generation workflow
+- `geojson_layers.md` — GeoJSON layer documentation
+- `data_dictionary.md` — spatial layer summary
+- `adapting_to_other_cities.md` — workflow adaptation guidance
+- 
 ## Repository Structure
 
 ```text
@@ -70,12 +79,3 @@ Interactive_Mapping_Fire_Station_Planning/
     ├── weights_critic.json
     ├── weights_rf.json
     └── weights_xgb.json
-
-## Documentation
-
-Additional workflow documentation is organized in the `docs/` folder:
-
-- `tile_generation.md` — raster tile generation workflow
-- `geojson_layers.md` — GeoJSON layer documentation
-- `data_dictionary.md` — spatial layer summary
-- `adapting_to_other_cities.md` — workflow adaptation guidance
