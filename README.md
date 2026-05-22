@@ -1,4 +1,4 @@
-# Interactive AI-GIS Multi-Criteria Mapping Tool for Fire Station Planning (Mississauga, Canada)
+# Interactive Mapping Tool for Fire Station Planning (Mississauga, Canada)
 
 This repository contains the interactive web map developed for the study:
 
