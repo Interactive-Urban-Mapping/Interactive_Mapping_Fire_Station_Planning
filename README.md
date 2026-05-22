@@ -4,6 +4,11 @@ This repository provides the open-source interactive webmapping platform develop
 
 **GeoAI and Multi-criteria Evaluation for Risk-informed Urban Fire Station Planning**
 
+## Repository and Webmap
+
+- **GitHub repository:** [Interactive Mapping Tool for Fire Station Planning](https://github.com/Interactive-Urban-Mapping/Interactive_Mapping_Fire_Station_Planning)
+- **Interactive webmap:** [Launch the interactive webmap](https://interactive-urban-mapping.github.io/Interactive_Mapping_Fire_Station_Planning/)
+
 The tool supports visualization and comparison of fire station planning scenarios using raster indicators, composite risk surfaces, and travel-time coverage layers. It was developed for the City of Mississauga, Canada, but the workflow can be adapted to other municipalities using equivalent local datasets.
 
 ## Overview
