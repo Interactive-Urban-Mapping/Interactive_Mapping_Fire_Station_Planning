@@ -19,7 +19,7 @@ This repository implements an interactive GeoAI multi-criteria evaluation platfo
 
 ## Interface Preview
 
-![Interactive web map UI showing composite raster visualization and baseline comparison controls](assets/ui_baseline_comparison.png)
+![Interactive dashboard UI for fire station planning decision support](assets/ui_baseline_comparison.jpg)
 
 ## Main Features
 
@@ -57,22 +57,29 @@ Composite raster surfaces are generated using:
 
 ```text
 Interactive_Mapping_Fire_Station_Planning/
-├── index.html
-├── app.js
-├── README.md
-├── LICENSE
-├── assets/
-└── data/
+|-- index.html
+|-- app.js
+|-- README.md
+|-- LICENSE
+|-- assets/
+|   |-- styles.css
+|   `-- ui_baseline_comparison.jpg
+|-- data/
+|   |-- chart_data/
+|   |-- *.geojson
+|   |-- weights_*.json
+|   `-- raster tile folders
+`-- docs/
 ```
 
 ## Documentation
 
 Additional workflow documentation is organized in the `docs/` folder:
 
-- `tile_generation.md` — raster tile generation workflow
-- `geojson_layers.md` — GeoJSON layer documentation
-- `data_dictionary.md` — spatial layer summary
-- `adapting_to_other_cities.md` — workflow adaptation guidance
+- `tile_generation.md` - raster tile generation workflow
+- `geojson_layers.md` - GeoJSON layer documentation
+- `data_dictionary.md` - spatial layer summary
+- `adapting_to_other_cities.md` - workflow adaptation guidance
 
 ## Supplementary Data
 
