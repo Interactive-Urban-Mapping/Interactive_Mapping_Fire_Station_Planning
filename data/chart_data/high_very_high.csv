@@ -1,0 +1,13 @@
+method,scenario,priority_class,minutes_0_4,minutes_4_6,minutes_6_plus
+CRITIC,21_24,High,12.66,8.81,6.7
+CRITIC,21_24,VeryHigh,20.74,6.72,9.13
+CRITIC,24_27,High,13.53,8.85,5.07
+CRITIC,24_27,VeryHigh,13.62,8.33,6.46
+RF,21_24,High,13.44,8.76,5.4
+RF,21_24,VeryHigh,14.26,7.2,10.61
+RF,24_27,High,9.0,6.6,5.34
+RF,24_27,VeryHigh,5.5,9.61,4.96
+XGB,21_24,High,14.98,8.2,6.84
+XGB,21_24,VeryHigh,13.11,8.48,10.66
+XGB,24_27,High,9.21,7.5,4.91
+XGB,24_27,VeryHigh,5.21,9.11,4.5

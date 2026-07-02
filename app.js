@@ -1,4 +1,4 @@
-﻿window.addEventListener("load", () => {
+window.addEventListener("load", () => {
     /* =====================================================
        MAP
     ===================================================== */
@@ -6,7 +6,6 @@
     let cityBoundaryLayer = null;
     let coverageLayer = null;
     let activeRaster = null;
-    let coverageChartsActive = false;
 
     const map = L.map("map", {
         minZoom: 9,
@@ -23,7 +22,7 @@
     const osmBase = L.tileLayer(
         "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         {
-            attribution: "&copy; OpenStreetMap contributors",
+            attribution: "&copy; OpenStreetMap contributors | Processed with QGIS",
             maxZoom: 19
         }
     );
@@ -31,7 +30,7 @@
     const cartoLightBase = L.tileLayer(
         "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
         {
-            attribution: "&copy; OpenStreetMap &copy; CARTO",
+            attribution: "&copy; OpenStreetMap contributors &copy; CARTO | Processed with QGIS",
             subdomains: "abcd",
             maxZoom: 20
         }
@@ -139,33 +138,64 @@
     /* =====================================================
        CHART DATA
     ===================================================== */
-    const DRIVE_TIME_DATA = {
-        COVERAGE: { "21_24": [10.8, 7.14, 5.68], "24_27": [9.67, 6.41, 3.8] },
+    const CHART_DATA_PATH = "./data/chart_data/";
+    let DRIVE_TIME_DATA = {};
+    let HIGH_VERYHIGH_DATA = {};
+    let chartDataLoadFailed = false;
 
-        "Incidents Heatmap": { "21_24": [13.88, 7.36, 7.02], "24_27": [9.43, 7.59, 4.51] },
-        "Incidents Response Time": { "21_24": [17.93, 5.72, 5.12], "24_27": [15.38, 5.38, 3.34] },
-        "Population Density": { "21_24": [13.05, 7.29, 8.06], "24_27": [12.72, 8.37, 6.1] },
+    function parseCsvRows(text) {
+        const lines = String(text || "").trim().split(/\r?\n/).filter(Boolean);
+        if (!lines.length) return [];
 
-        CRITIC: { "21_24": [13.02, 6.7, 6.55], "24_27": [10.6, 7.0, 4.27] },
-        RF: { "21_24": [12.26, 7.4, 8.0], "24_27": [8.08, 7.97, 4.75] },
-        XGB: { "21_24": [11.65, 7.48, 7.43], "24_27": [8.6, 7.69, 4.41] }
-    };
+        const headers = lines[0].replace(/^\uFEFF/, "").split(",").map(h => h.trim());
+        return lines.slice(1).map(line => {
+            const cols = line.split(",").map(c => c.trim());
+            return headers.reduce((row, header, i) => {
+                row[header] = cols[i] ?? "";
+                return row;
+            }, {});
+        });
+    }
 
-    const HIGH_VERYHIGH_DATA = {
-        CRITIC: {
-            "21_24": { High: [12.66, 8.81, 6.7], VeryHigh: [20.74, 6.72, 9.13] },
-            "24_27": { High: [13.53, 8.85, 5.07], VeryHigh: [13.62, 8.33, 6.46] }
-        },
-        RF: {
-            "21_24": { High: [13.44, 8.76, 5.4], VeryHigh: [14.26, 7.2, 10.61] },
-            "24_27": { High: [9.0, 6.6, 5.34], VeryHigh: [5.5, 9.61, 4.96] }
-        },
-        XGB: {
-            "21_24": { High: [14.98, 8.2, 6.84], VeryHigh: [13.11, 8.48, 10.66] },
-            "24_27": { High: [9.21, 7.5, 4.91], VeryHigh: [5.21, 9.11, 4.5] }
-        }
-    };
+    function chartValues(row) {
+        return [
+            Number(row.minutes_0_4),
+            Number(row.minutes_4_6),
+            Number(row.minutes_6_plus)
+        ];
+    }
 
+    async function loadChartData() {
+        const [driveCsv, highCsv] = await Promise.all([
+            fetch(CHART_DATA_PATH + "drive_time_coverage.csv" + cacheBuster).then(res => res.text()),
+            fetch(CHART_DATA_PATH + "high_very_high.csv" + cacheBuster).then(res => res.text())
+        ]);
+
+        const driveData = {};
+        parseCsvRows(driveCsv).forEach(row => {
+            const key = row.chart_key;
+            if (!driveData[key]) driveData[key] = {};
+            driveData[key][row.scenario] = chartValues(row);
+        });
+
+        const highData = {};
+        parseCsvRows(highCsv).forEach(row => {
+            const method = row.method;
+            if (!highData[method]) highData[method] = {};
+            if (!highData[method][row.scenario]) highData[method][row.scenario] = {};
+            highData[method][row.scenario][row.priority_class] = chartValues(row);
+        });
+
+        DRIVE_TIME_DATA = driveData;
+        HIGH_VERYHIGH_DATA = highData;
+    }
+
+    const chartDataReady = loadChartData().catch(err => {
+        console.error("Failed to load chart CSV data:", err);
+        chartDataLoadFailed = true;
+        DRIVE_TIME_DATA = {};
+        HIGH_VERYHIGH_DATA = {};
+    });
     const CHART_ONLY_SET = new Set([
         "Incidents Heatmap",
         "Incidents Response Time",
@@ -197,7 +227,7 @@
     let deltaWeightsChart = null;
 
     const el = (id) => document.getElementById(id);
-    const setShow = (id, show) => { const n = el(id); if (n) n.style.display = show ? "block" : "none"; };
+    const setShow = (id, show) => { const n = el(id); if (!n) return; if (id === "chartPanel") { n.style.display = "block"; return; } n.style.display = show ? "block" : "none"; };
 
     function destroyChart(refSetter, chart) {
         if (chart) chart.destroy();
@@ -271,32 +301,53 @@
     const rasterTitle = (k) =>
         k === "CRITIC" ? "CRITIC" : k === "RF" ? "Random Forest" : k === "XGB" ? "XGBoost" : k;
 
-    function clearRasterChartsOnly() {
+
+    function clearChartPanel() {
+        if (driveChartCoverage) driveChartCoverage.destroy();
         if (driveChartRaster) driveChartRaster.destroy();
-        driveChartRaster = null;
         if (chart2124) chart2124.destroy();
         if (chart2427) chart2427.destroy();
-        chart2124 = chart2427 = null;
-
+        driveChartCoverage = null;
+        driveChartRaster = null;
+        chart2124 = null;
+        chart2427 = null;
+        setShow("chartWrap_drive_coverage", false);
         setShow("chartWrap_drive_composite", false);
         setShow("chartWrap_2124", false);
         setShow("chartWrap_2427", false);
-
-        if (!coverageChartsActive) setShow("chartPanel", false);
+        setShow("chartEmpty", true);
     }
 
-    function renderRasterCharts(active) {
-        clearRasterChartsOnly();
+    function renderDashboardChart(key) {
+        clearChartPanel();
+        if (!key) return;
 
-        const key = rasterDriveKey(active);
-        if (!key || !DRIVE_TIME_DATA[key]) return;
+        if (!DRIVE_TIME_DATA[key]) {
+            if (!chartDataLoadFailed) {
+                chartDataReady.then(() => {
+                    if (DRIVE_TIME_DATA[key]) renderDashboardChart(key);
+                });
+            }
+            return;
+        }
 
-        setShow("chartPanel", true);
+        setShow("chartEmpty", false);
+
+        if (key === "COVERAGE") {
+            setShow("chartWrap_drive_coverage", chartsVisible);
+            driveChartCoverage = makeDriveTimeChart(
+                "chart_drive_coverage",
+                "Service Coverage Drive-Time",
+                DRIVE_TIME_DATA.COVERAGE["21_24"],
+                DRIVE_TIME_DATA.COVERAGE["24_27"]
+            );
+            return;
+        }
+
         setShow("chartWrap_drive_composite", chartsVisible);
-
         driveChartRaster = makeDriveTimeChart(
             "chart_drive_composite",
-            `${rasterTitle(key)} – Drive-Time Coverage (minutes)`,
+            `${rasterTitle(key)} - Drive-Time Coverage (minutes)`,
             DRIVE_TIME_DATA[key]["21_24"],
             DRIVE_TIME_DATA[key]["24_27"]
         );
@@ -308,7 +359,7 @@
 
             chart2124 = makeHighChart(
                 "chart_2124",
-                `${rasterTitle(key)} – High vs Very High (21–24)`,
+                `${rasterTitle(key)} - High vs Very High (21-24)`,
                 HIGH_VERYHIGH_DATA[key]["21_24"].High,
                 HIGH_VERYHIGH_DATA[key]["21_24"].VeryHigh,
                 { light: "#6ec1ff", dark: "#1e90ff" }
@@ -316,13 +367,22 @@
 
             chart2427 = makeHighChart(
                 "chart_2427",
-                `${rasterTitle(key)} – High vs Very High (24–27)`,
+                `${rasterTitle(key)} - High vs Very High (24-27)`,
                 HIGH_VERYHIGH_DATA[key]["24_27"].High,
                 HIGH_VERYHIGH_DATA[key]["24_27"].VeryHigh,
                 { light: "#7fe0a3", dark: "#2ecc71" }
             );
         }
     }
+
+    document.querySelectorAll('input[name="chartChoice"]').forEach((radio) => {
+        radio.addEventListener("change", (e) => renderDashboardChart(e.target.value));
+    });
+
+    el("btnClearCharts")?.addEventListener("click", () => {
+        document.querySelectorAll('input[name="chartChoice"]').forEach(r => { r.checked = false; });
+        clearChartPanel();
+    });
     function setSlidersFromWeights01(w01) {
         if (!w01) return;
 
@@ -774,7 +834,6 @@
             console.warn("Select at least 2 layers.");
             setAllSlidersZero();
             compositeLayer.redraw();
-            clearRasterChartsOnly();
             updateLiveChangeUI();
             return;
         }
@@ -785,7 +844,6 @@
             console.warn("No weights found for subset:", canonicalSubsetKey(selected), "method:", method);
             setAllSlidersZero();
             compositeLayer.redraw();
-            clearRasterChartsOnly();
             updateLiveChangeUI();
             return;
         }
@@ -797,18 +855,6 @@
 
         if (map.hasLayer(compositeLayer)) compositeLayer.redraw();
 
-        if (isCompositeChartAllowed(selected)) {
-            setShow("chartPanel", true);
-
-            const pseudoName =
-                method === "CRITIC" ? "CRITIC Composite" :
-                    method === "RF" ? "Random Forest Composite" :
-                        "XGBoost Composite";
-
-            renderRasterCharts(pseudoName);
-        } else {
-            clearRasterChartsOnly();
-        }
     }
     el("btnCRITIC")?.addEventListener("click", () => applyModelComposite("CRITIC"));
     el("btnRF")?.addEventListener("click", () => applyModelComposite("RF"));
@@ -831,14 +877,13 @@
         clearRasters();
         activeRaster = name;
 
-        const hideBox = el("chkHideRasters");
+        const hideBox = el("chkHideLayers");
         if (hideBox) hideBox.checked = false;
 
         if (activeRaster === "__COMPOSITE__") {
             setShow("weights", true);
             setShow("modelPanel", true);
             compositeLayer.addTo(map);
-            clearRasterChartsOnly();
             updateLiveChangeUI();
 
         } else {
@@ -846,7 +891,7 @@
             setShow("modelPanel", false);
 
             if (layers[activeRaster]) layers[activeRaster].addTo(map);
-            renderRasterCharts(activeRaster);
+            // Raster display is independent from chart selection.
         }
     }
 
@@ -856,15 +901,14 @@
         });
     });
 
-    const chkHideRasters = el("chkHideRasters");
-    if (chkHideRasters) {
-        chkHideRasters.addEventListener("change", (e) => {
+    const chkHideLayers = el("chkHideLayers");
+    if (chkHideLayers) {
+        chkHideLayers.addEventListener("change", (e) => {
             if (!e.target.checked) return;
 
             clearRasters();
             setShow("weights", false);
             document.querySelectorAll('input[name="r"]').forEach((r) => (r.checked = false));
-            clearRasterChartsOnly();
         });
     }
 
@@ -944,17 +988,6 @@
 
                 updateCoverageFilter();
 
-                coverageChartsActive = true;
-                setShow("chartPanel", true);
-                setShow("chartWrap_drive_coverage", chartsVisible);
-
-                if (driveChartCoverage) driveChartCoverage.destroy();
-                driveChartCoverage = makeDriveTimeChart(
-                    "chart_drive_coverage",
-                    "Service Coverage Drive-Time",
-                    DRIVE_TIME_DATA.COVERAGE["21_24"],
-                    DRIVE_TIME_DATA.COVERAGE["24_27"]
-                );
 
             } else {
                 if (coverageLayer) map.removeLayer(coverageLayer);
@@ -962,12 +995,6 @@
 
                 if (el("coverageFilter")) el("coverageFilter").style.display = "none";
 
-                coverageChartsActive = false;
-                if (driveChartCoverage) driveChartCoverage.destroy();
-                driveChartCoverage = null;
-                setShow("chartWrap_drive_coverage", false);
-
-                if (!driveChartRaster && !chart2124 && !chart2427) setShow("chartPanel", false);
             }
         });
     }
@@ -1082,7 +1109,7 @@
     setInterval(() => {
         flashingBlue.forEach((m) => m.setIcon(m.options.icon === blueOn ? blueOff : blueOn));
         flashingGreen.forEach((m) => m.setIcon(m.options.icon === greenOn ? greenOff : greenOn));
-    }, 600);
+    }, 2600);
 
     fetch("./data/City_Boundary.geojson?v=" + Date.now())
         .then((r) => {
@@ -1122,29 +1149,15 @@
             }
         });
     }
-    /* =====================================================
-   CHART PANEL COLLAPSE
-===================================================== */
-    const chartBtn = el("toggleCharts");
-    const chartPanel = el("chartPanel");
 
-    if (chartBtn && chartPanel) {
+    const toggleUiButton = el("toggleUI");
+    const layerPanel = el("layerToggle");
 
-        chartBtn.addEventListener("click", () => {
-
-            chartPanel.classList.toggle("collapsed");
-
-            const isCollapsed = chartPanel.classList.contains("collapsed");
-
-            chartBtn.setAttribute(
-                "aria-expanded",
-                String(!isCollapsed)
-            );
-
-            chartBtn.textContent =
-                isCollapsed
-                    ? "📊 Show Charts"
-                    : "📊 Charts";
+    if (toggleUiButton && layerPanel) {
+        toggleUiButton.addEventListener("click", () => {
+            layerPanel.classList.toggle("collapsed");
+            toggleUiButton.setAttribute("aria-expanded", String(!layerPanel.classList.contains("collapsed")));
+            setTimeout(() => window.map?.invalidateSize(true), 200);
         });
     }
     // RESET VIEW 
@@ -1156,11 +1169,12 @@
             r.checked = false;
         });
 
-        const hideBox = el("chkHideRasters");
+        const hideBox = el("chkHideLayers");
         if (hideBox) hideBox.checked = false;
 
         clearRasters();
-        clearRasterChartsOnly();
+        document.querySelectorAll('input[name="chartChoice"]').forEach(r => { r.checked = false; });
+        clearChartPanel();
 
         setTimeout(() => {
             map.invalidateSize(true);
