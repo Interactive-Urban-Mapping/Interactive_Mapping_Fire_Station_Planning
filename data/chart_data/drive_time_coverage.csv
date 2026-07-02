@@ -1,0 +1,15 @@
+chart_key,scenario,minutes_0_4,minutes_4_6,minutes_6_plus
+COVERAGE,21_24,10.8,7.14,5.68
+COVERAGE,24_27,9.67,6.41,3.8
+Incidents Heatmap,21_24,13.88,7.36,7.02
+Incidents Heatmap,24_27,9.43,7.59,4.51
+Incidents Response Time,21_24,17.93,5.72,5.12
+Incidents Response Time,24_27,15.38,5.38,3.34
+Population Density,21_24,13.05,7.29,8.06
+Population Density,24_27,12.72,8.37,6.1
+CRITIC,21_24,13.02,6.7,6.55
+CRITIC,24_27,10.6,7.0,4.27
+RF,21_24,12.26,7.4,8.0
+RF,24_27,8.08,7.97,4.75
+XGB,21_24,11.65,7.48,7.43
+XGB,24_27,8.6,7.69,4.41

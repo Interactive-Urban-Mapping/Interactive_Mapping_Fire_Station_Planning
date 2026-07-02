@@ -1,0 +1,457 @@
+        :root {
+            --header-height: 86px;
+            --dashboard-gap: 12px;
+            --left-panel-width: 332px;
+            --right-panel-width: 354px;
+            --panel-bg: #f8fafc;
+            --panel-border: #cbd5df;
+            --panel-shadow: 0 8px 22px rgba(28,43,55,0.12);
+            --header-bg: #18364a;
+            --header-accent: #87a9bd;
+            --text-main: #142533;
+        }
+
+        .leaflet-container {
+            touch-action: pan-x pan-y;
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            background: #edf2f5;
+            color: var(--text-main);
+            font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+        }
+
+        #dashboardHeader {
+            position: fixed;
+            top: 0;
+            right: 0;
+            left: 0;
+            height: var(--header-height);
+            z-index: 1300;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 4px;
+            box-sizing: border-box;
+            padding: 12px 24px;
+            color: #fff;
+            background: var(--header-bg);
+            border-bottom: 4px solid var(--header-accent);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+        }
+
+        #dashboardHeader .dashboard-kicker {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0;
+            color: #dbe8ef;
+        }
+
+        #dashboardHeader .dashboard-title {
+            margin: 0;
+            font-size: 22px;
+            line-height: 1.18;
+            font-weight: 800;
+            letter-spacing: 0;
+            color: #fff;
+        }
+
+        #map {
+            position: fixed;
+            top: var(--header-height);
+            right: calc(var(--right-panel-width) + (var(--dashboard-gap) * 2));
+            bottom: 0;
+            left: calc(var(--left-panel-width) + (var(--dashboard-gap) * 2));
+            z-index: 0;
+            min-width: 260px;
+            background: #e1e8ed;
+        }
+
+        #mapToolbar {
+            position: fixed;
+            top: calc(var(--header-height) + var(--dashboard-gap));
+            right: calc(var(--right-panel-width) + (var(--dashboard-gap) * 3));
+            z-index: 1200;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        #infoPopup {
+            position: fixed;
+            top: calc(var(--header-height) + var(--dashboard-gap));
+            right: calc(var(--right-panel-width) + 66px);
+            z-index: 1199;
+            width: 310px;
+            max-height: calc(100vh - var(--header-height) - 28px);
+            overflow-y: auto;
+            display: none;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 7px;
+            padding: 10px 12px;
+            box-shadow: var(--panel-shadow);
+            font-size: 12px;
+            line-height: 1.25;
+            transition: all 0.2s ease;
+        }
+
+        #infoPopup strong {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .info-row {
+            margin-bottom: 7px;
+        }
+
+        #mapToolbar button {
+            width: 38px;
+            height: 38px;
+            border: 1px solid var(--panel-border);
+            border-radius: 7px;
+            background: var(--panel-bg);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.16);
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: 700;
+            transition: all 0.15s ease;
+        }
+
+        #mapToolbar button:hover {
+            background: #f4f7f9;
+            transform: translateY(-1px);
+        }
+
+        #layerToggle,
+        #chartPanel {
+            position: fixed;
+            top: calc(var(--header-height) + var(--dashboard-gap));
+            bottom: var(--dashboard-gap);
+            z-index: 1000;
+            box-sizing: border-box;
+            overflow: hidden;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 7px;
+            box-shadow: var(--panel-shadow);
+            font-size: 12px;
+            transition: width 0.2s ease, height 0.2s ease, opacity 0.2s ease;
+        }
+
+        #layerToggle {
+            left: var(--dashboard-gap);
+            width: var(--left-panel-width);
+            padding: 10px 12px;
+            overflow-y: auto;
+        }
+
+        #layerToggle.collapsed {
+            height: 44px;
+            overflow: hidden;
+        }
+
+        #layerToggle.collapsed #panelContent {
+            display: none;
+        }
+
+        #toggleUI {
+            width: 100%;
+            margin-bottom: 8px;
+            padding: 8px 10px;
+            border: 1px solid #c4d0da;
+            border-radius: 7px;
+            background: #f0f4f7;
+            color: #173245;
+            font-weight: 700;
+            cursor: pointer;
+            text-align: left;
+        }
+
+        #layerToggle label {
+            display: block;
+            padding: 3px 0;
+            line-height: 1.15;
+        }
+
+        #layerToggle input[type="range"] {
+            width: 100%;
+        }
+
+        .ui-group {
+            margin-bottom: 6px;
+            border: 1px solid #d5dee6;
+            border-radius: 7px;
+            padding: 8px 10px;
+            background: #f8fafc;
+        }
+
+        .ui-group summary {
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 13px;
+            padding: 4px 0;
+            user-select: none;
+        }
+
+        .ui-group-content {
+            padding-top: 4px;
+        }
+
+        .ui-group label {
+            padding: 3px 0 !important;
+            font-size: 12px;
+            line-height: 1.1;
+        }
+
+        #layerToggle hr {
+            margin: 8px 0;
+            border: 0;
+            border-top: 1px solid #d5dee6;
+        }
+
+        #weights div {
+            margin-top: 6px;
+        }
+
+        #weights span {
+            float: right;
+            font-weight: 700;
+            font-size: 12px;
+            min-width: 42px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .ui-legend {
+            margin-top: 14px;
+            padding-top: 10px;
+            border-top: 1px solid #d5dee6;
+        }
+
+        .ui-legend strong {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+
+        .legend-gradient {
+            height: 16px;
+            border: 1px solid #8797a1;
+            margin-bottom: 6px;
+            background: linear-gradient( to right, #30123b, #4145ab, #2db9cb, #f6f65a, #f28024, #800000 );
+        }
+
+        .legend-scale {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+        }
+
+        #chartPanel {
+            right: var(--dashboard-gap);
+            width: var(--right-panel-width);
+            padding: 10px 12px;
+            display: block;
+        }
+
+        #chartPanelContent {
+            height: 100%;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        #chartTitle {
+            font-weight: 700;
+            margin: 0 0 8px 0;
+        }
+
+        #chartSubtitle {
+            margin: 0 0 10px 0;
+            color: #555;
+            font-size: 12px;
+            line-height: 1.2;
+        }
+
+        .chart-wrap {
+            height: 180px;
+            display: none;
+            margin-top: 14px;
+        }
+
+        .chart-wrap.first {
+            margin-top: 0;
+        }
+
+        #chartCanvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        .chart-toggle-bottom {
+            font-size: 10px;
+            line-height: 1;
+            color: #777;
+            text-align: right;
+            cursor: pointer;
+            margin-top: 4px;
+            padding: 0;
+            user-select: none;
+        }
+
+        .chart-toggle-bottom:hover {
+            color: #000;
+            text-decoration: underline;
+        }
+
+        .coverage-grid {
+            margin: 6px 0 10px 18px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            row-gap: 6px;
+            column-gap: 10px;
+        }
+
+        .coverage-grid label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+        }
+
+
+        .chart-options {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .chart-group {
+            border: 1px solid #d5dee6;
+            border-radius: 7px;
+            padding: 10px 12px;
+            background: #f8fafc;
+        }
+
+        .chart-group summary {
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 13px;
+            padding: 4px 0;
+            user-select: none;
+        }
+
+        .chart-group label {
+            display: block;
+            padding: 4px 0;
+            line-height: 1.2;
+        }
+
+        #btnClearCharts {
+            width: 100%;
+            padding: 9px 10px;
+            border: 1px solid #c4d0da;
+            border-radius: 7px;
+            background: #f8fafc;
+            color: #173245;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        #chartEmpty {
+            padding: 10px;
+            border: 1px dashed #c4d0da;
+            border-radius: 7px;
+            color: #506575;
+            background: #f8fafc;
+            line-height: 1.35;
+        }
+        #deltaPanel {
+            margin-top: 14px;
+            padding-top: 10px;
+            border-top: 1px solid #d5dee6;
+        }
+
+        #deltaPanel .delta-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        #deltaPanel button[disabled] {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #baselineStatus {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        #changeSummary {
+            margin-top: 8px;
+            font-size: 13px;
+            line-height: 1.35;
+        }
+
+        #deltaChartWrap {
+            height: 420px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        @media (max-width: 1120px) {
+            #map {
+                right: var(--dashboard-gap);
+            }
+
+            #chartPanel {
+                width: min(var(--right-panel-width), calc(100vw - 24px));
+            }
+        }
+
+        @media (max-width: 900px) {
+            :root {
+                --header-height: 104px;
+                --left-panel-width: calc(100vw - 24px);
+                --right-panel-width: calc(100vw - 24px);
+            }
+
+            #dashboardHeader {
+                padding: 10px 14px;
+            }
+
+            #dashboardHeader .dashboard-title {
+                font-size: 18px;
+            }
+
+            #map {
+                left: 0;
+                right: 0;
+            }
+
+            #layerToggle,
+            #chartPanel {
+                max-height: calc(50vh - var(--dashboard-gap));
+            }
+
+            #chartPanel {
+                top: auto;
+                left: var(--dashboard-gap);
+            }
+
+            #mapToolbar {
+                right: var(--dashboard-gap);
+            }
+
+            #infoPopup {
+                right: var(--dashboard-gap);
+                width: min(310px, calc(100vw - 48px));
+            }
+        }
