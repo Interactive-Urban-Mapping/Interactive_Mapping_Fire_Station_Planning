@@ -1,10 +1,11 @@
-window.addEventListener("load", () => {
+﻿window.addEventListener("load", () => {
     /* =====================================================
        MAP
     ===================================================== */
     let stationsLayer = null;
     let cityBoundaryLayer = null;
-    let coverageLayer = null;
+    let coverageLayers = {};
+    let activeCoverageKey = null;
     let activeRaster = null;
 
     const map = L.map("map", {
@@ -52,6 +53,12 @@ window.addEventListener("load", () => {
         radio.addEventListener("change", e => {
             selectedCoverageRange = e.target.value;
             updateCoverageFilter();
+        });
+    });
+
+    document.querySelectorAll('input[name="serviceAreaChoice"]').forEach(radio => {
+        radio.addEventListener("change", e => {
+            applyServiceAreaSelection(e.target.value);
         });
     });
     /* =====================================================
@@ -241,10 +248,10 @@ window.addEventListener("load", () => {
         return new Chart(canvas.getContext("2d"), {
             type: "bar",
             data: {
-                labels: ["0–4", "4–6", "6+"],
+                labels: ["0-4", "4-6", "6+"],
                 datasets: [
-                    { label: "21–24 Stations", data: d21, backgroundColor: "#6ec1ff" },
-                    { label: "24–27 Stations", data: d27, backgroundColor: "#2ecc71" }
+                    { label: "21-24 Stations", data: d21, backgroundColor: "#6ec1ff" },
+                    { label: "24-27 Stations", data: d27, backgroundColor: "#2ecc71" }
                 ]
             },
             options: {
@@ -266,7 +273,7 @@ window.addEventListener("load", () => {
         return new Chart(canvas.getContext("2d"), {
             type: "bar",
             data: {
-                labels: ["0–4", "4–6", "6+"],
+                labels: ["0-4", "4-6", "6+"],
                 datasets: [
                     { label: "High", data: high, backgroundColor: palette.light },
                     { label: "Very High", data: veryHigh, backgroundColor: palette.dark }
@@ -285,12 +292,10 @@ window.addEventListener("load", () => {
     }
 
     function rasterDriveKey(active) {
-        // composites
         if (active === "CRITIC Composite") return "CRITIC";
         if (active === "Random Forest Composite") return "RF";
         if (active === "XGBoost Composite") return "XGB";
 
-        // single layers
         if (active === "Incidents Heatmap") return "Incidents Heatmap";
         if (active === "Incidents Response Time") return "Incidents Response Time";
         if (active === "Population Density") return "Population Density";
@@ -485,14 +490,14 @@ window.addEventListener("load", () => {
         <div><strong>Live change summary</strong></div>
         <div>Selected indicators: <strong>${activeCount}</strong> (${selected.map(escapeHtml).join(", ") || "none"})</div>
         <div>Top weights now: ${topCur.length
-                ? topCur.map(d => `<span><strong>${escapeHtml(d.name)}</strong> (${prettyPct(d.cur)})</span>`).join(" • ")
+                ? topCur.map(d => `<span><strong>${escapeHtml(d.name)}</strong> (${prettyPct(d.cur)})</span>`).join(" | ")
                 : "<span>none</span>"
             }</div>
         <div style="margin-top:4px;">
             ${baselineOk ? `
-                <div>Biggest increases vs baseline: ${up.map(d => `<span><strong>${escapeHtml(d.name)}</strong> (${(d.delta >= 0 ? "+" : "") + (100 * d.delta).toFixed(1)}%)</span>`).join(" • ")
+                <div>Biggest increases vs baseline: ${up.map(d => `<span><strong>${escapeHtml(d.name)}</strong> (${(d.delta >= 0 ? "+" : "") + (100 * d.delta).toFixed(1)}%)</span>`).join(" | ")
                 }</div>
-                <div>Biggest decreases vs baseline: ${down.map(d => `<span><strong>${escapeHtml(d.name)}</strong> (${(d.delta >= 0 ? "+" : "") + (100 * d.delta).toFixed(1)}%)</span>`).join(" • ")
+                <div>Biggest decreases vs baseline: ${down.map(d => `<span><strong>${escapeHtml(d.name)}</strong> (${(d.delta >= 0 ? "+" : "") + (100 * d.delta).toFixed(1)}%)</span>`).join(" | ")
                 }</div>
             ` : `<div style="opacity:0.85;">Tip: click <strong>Set current as baseline</strong> to enable delta comparisons.</div>`}
         </div>
@@ -513,7 +518,7 @@ window.addEventListener("load", () => {
             data: {
                 labels,
                 datasets: [{
-                    label: "Δ weight (current − baseline)",
+                    label: "Delta weight (current - baseline)",
                     data
                 }]
             },
@@ -528,14 +533,14 @@ window.addEventListener("load", () => {
                         callbacks: {
                             label: (ctx) => {
                                 const v = ctx.raw || 0;
-                                return ` Δ ${(100 * v).toFixed(1)}%`;
+                                return `Delta ${(100 * v).toFixed(1)}%`;
                             }
                         }
                     }
                 },
                 scales: {
                     x: {
-                        title: { display: true, text: "Δ weight" },
+                        title: { display: true, text: "Delta weight" },
                         ticks: { callback: (v) => (100 * v).toFixed(0) + "%" }
                     },
                     y: { ticks: { autoSkip: false } }
@@ -601,8 +606,6 @@ window.addEventListener("load", () => {
         "Land Use Risk": new SafeTileLayer("./data/Land_Use", { pane: "rasters" })
         
     };
-
-    // VALUE tiles 
     const valueSources = {
         "Incidents Heatmap": new SafeTileLayer("./data/Incidents_Heatmap_VAL", { pane: "rasters" }),
         "Incidents Response Time": new SafeTileLayer("./data/Response_Time_VAL", { pane: "rasters" }),
@@ -891,7 +894,6 @@ window.addEventListener("load", () => {
             setShow("modelPanel", false);
 
             if (layers[activeRaster]) layers[activeRaster].addTo(map);
-            // Raster display is independent from chart selection.
         }
     }
 
@@ -907,51 +909,91 @@ window.addEventListener("load", () => {
             if (!e.target.checked) return;
 
             clearRasters();
+            clearServiceAreaSelection();
             setShow("weights", false);
             document.querySelectorAll('input[name="r"]').forEach((r) => (r.checked = false));
         });
     }
 
     /* =====================================================
-       COVERAGE POLYGON + COVERAGE CHART
+       SERVICE AREA POLYGONS
     ===================================================== */
+    const SERVICE_AREA_CONFIG = {
+        "21": {
+            label: "21 Stations",
+            url: "./data/Service%20Areas/Service_Area_21St.geojson"
+        },
+        "24": {
+            label: "24 Stations",
+            url: "./data/Service%20Areas/Service_Area_24St.geojson"
+        },
+        "27": {
+            label: "27 Stations",
+            url: "./data/Service%20Areas/Fire_Stations_Service_Coverage.geojson"
+        }
+    };
+
     function driveTimeColor(dt) {
-        if (dt === "0 - 4") return "#006d6f";   
-        if (dt === "4 - 6") return "#2aa198";   
-        if (dt === "6 - 8") return "#b2dfdb";      
+        if (dt === "0 - 4") return "#006d6f";
+        if (dt === "4 - 6") return "#2aa198";
+        if (dt === "6 - 8") return "#b2dfdb";
         return "#ccc";
     }
 
-    fetch("./data/Fire_Stations_Service_Coverage.geojson?v=" + Date.now())
-        .then((r) => {
-            if (!r.ok) throw new Error(`HTTP ${r.status} while loading coverage geojson`);
-            return r.text();
-        })
-        .then((t) => {
-            if (!t || t.trim().length === 0) throw new Error("Coverage geojson is empty");
-            if (t.trim().startsWith("<")) throw new Error("HTML returned instead of GeoJSON");
-            return JSON.parse(t);
-        })
-        .then((d) => {
-            d.features.sort((a, b) => {
-                const order = { "6 - 8": 0, "4 - 6": 1, "0 - 4": 2 };
-                return (order[a.properties?.Drive_Time] ?? 0) - (order[b.properties?.Drive_Time] ?? 0);
-            });
+    function normalizeDriveTime(value) {
+        const text = String(value || "").trim().replace(/\s+/g, " ");
+        if (/^0\s*-\s*4$/.test(text)) return "0 - 4";
+        if (/^4\s*-\s*6$/.test(text)) return "4 - 6";
+        if (/^6\s*-\s*8$/.test(text)) return "6 - 8";
+        return text;
+    }
 
-            coverageLayer = L.geoJSON(d, {
-                pane: "coverage",
-                style: (f) => ({
-                    color: "#444",
-                    weight: 1.2,
-                    fillColor: driveTimeColor(f.properties?.Drive_Time),
-                    fillOpacity: 0.45
-                })
+    function serviceAreaStyle(feature) {
+        const dt = normalizeDriveTime(feature.properties?.Drive_Time);
+        return {
+            color: "#444",
+            weight: 1.2,
+            fillColor: driveTimeColor(dt),
+            fillOpacity: selectedCoverageRange === "ALL" || dt === selectedCoverageRange ? 0.55 : 0
+        };
+    }
+
+    function sortCoverageFeatures(data) {
+        const order = { "6 - 8": 0, "4 - 6": 1, "0 - 4": 2 };
+        data.features.sort((a, b) => {
+            const aDt = normalizeDriveTime(a.properties?.Drive_Time);
+            const bDt = normalizeDriveTime(b.properties?.Drive_Time);
+            return (order[aDt] ?? 0) - (order[bDt] ?? 0);
+        });
+        return data;
+    }
+
+    function loadServiceAreaLayer(key) {
+        if (coverageLayers[key]) return Promise.resolve(coverageLayers[key]);
+
+        const config = SERVICE_AREA_CONFIG[key];
+        if (!config) return Promise.reject(new Error(`Unknown service area key: ${key}`));
+
+        return fetch(config.url + "?v=" + Date.now())
+            .then((r) => {
+                if (!r.ok) throw new Error(`HTTP ${r.status} while loading ${config.label} service area`);
+                return r.text();
+            })
+            .then((t) => {
+                if (!t || t.trim().length === 0) throw new Error(`${config.label} service area GeoJSON is empty`);
+                if (t.trim().startsWith("<")) throw new Error("HTML returned instead of GeoJSON");
+                return sortCoverageFeatures(JSON.parse(t));
+            })
+            .then((data) => {
+                coverageLayers[key] = L.geoJSON(data, {
+                    pane: "coverage",
+                    style: serviceAreaStyle
+                });
+                return coverageLayers[key];
             });
-        })
-        .catch((err) => console.error("Coverage GeoJSON load failed:", err));
+    }
 
     const legend = el("coverage-legend");
-    const chkCoverage = el("chkCoverage");
 
     function enforceStationZOrder() {
         const chkStations = el("chkStations");
@@ -961,43 +1003,50 @@ window.addEventListener("load", () => {
 
     let selectedCoverageRange = "ALL";
 
+    function removeActiveServiceArea() {
+        if (!activeCoverageKey) return;
+        const activeLayer = coverageLayers[activeCoverageKey];
+        if (activeLayer && map.hasLayer(activeLayer)) map.removeLayer(activeLayer);
+        activeCoverageKey = null;
+    }
+
     function updateCoverageFilter() {
-        if (!coverageLayer) return;
+        const activeLayer = activeCoverageKey ? coverageLayers[activeCoverageKey] : null;
+        if (!activeLayer) return;
 
-        coverageLayer.eachLayer(layer => {
-            const dt = layer.feature?.properties?.Drive_Time;
-
-            if (selectedCoverageRange === "ALL") {
-                layer.setStyle({ fillOpacity: 0.55 });
-            } else {
-                layer.setStyle({ fillOpacity: (dt === selectedCoverageRange) ? 0.55 : 0 });
-            }
+        activeLayer.eachLayer(layer => {
+            const dt = normalizeDriveTime(layer.feature?.properties?.Drive_Time);
+            layer.setStyle({ fillOpacity: selectedCoverageRange === "ALL" || dt === selectedCoverageRange ? 0.55 : 0 });
         });
     }
 
-    if (chkCoverage) {
-        chkCoverage.addEventListener("change", (e) => {
-            const on = e.target.checked;
+    function applyServiceAreaSelection(key) {
+        removeActiveServiceArea();
+        activeCoverageKey = key;
 
-            if (on) {
-                if (coverageLayer) coverageLayer.addTo(map);
-                enforceStationZOrder();
-                if (legend) legend.style.display = "block";
+        if (legend) legend.style.display = "block";
+        if (el("coverageFilter")) el("coverageFilter").style.display = "grid";
 
-                if (el("coverageFilter")) el("coverageFilter").style.display = "grid";
-
+        loadServiceAreaLayer(key)
+            .then((layer) => {
+                if (activeCoverageKey !== key) return;
+                layer.addTo(map);
                 updateCoverageFilter();
-
-
-            } else {
-                if (coverageLayer) map.removeLayer(coverageLayer);
-                if (legend) legend.style.display = "none";
-
-                if (el("coverageFilter")) el("coverageFilter").style.display = "none";
-
-            }
-        });
+                enforceStationZOrder();
+            })
+            .catch((err) => console.error("Service area GeoJSON load failed:", err));
     }
+
+    function clearServiceAreaSelection() {
+        removeActiveServiceArea();
+        document.querySelectorAll('input[name="serviceAreaChoice"]').forEach((r) => { r.checked = false; });
+        selectedCoverageRange = "ALL";
+        document.querySelectorAll('input[name="covRange"]').forEach((r) => { r.checked = r.value === "ALL"; });
+        if (legend) legend.style.display = "none";
+        if (el("coverageFilter")) el("coverageFilter").style.display = "none";
+    }
+
+    el("btnClearServiceArea")?.addEventListener("click", clearServiceAreaSelection);
 
     /* =====================================================
        STATIONS
@@ -1021,8 +1070,9 @@ window.addEventListener("load", () => {
                 box-shadow: 0 1px 4px rgba(0,0,0,0.35);
                 opacity: ${opacity};
                 font-size: 14px;
+                line-height: 1;
             ">
-                🚒
+                &#128658;
             </div>
         `,
             iconSize: [24, 24],
@@ -1089,7 +1139,7 @@ window.addEventListener("load", () => {
                 enforceStationZOrder();
             }
         })
-        .catch((err) => console.error("🔥 Fire Stations load failed:", err));
+        .catch((err) => console.error("Fire Stations load failed:", err));
 
     const chkStations = el("chkStations");
     if (chkStations) {
@@ -1135,7 +1185,7 @@ window.addEventListener("load", () => {
             const chk = el("chkCityBoundary");
             if (!chk || chk.checked) cityBoundaryLayer.addTo(map);
         })
-        .catch((err) => console.error("🔥 City Boundary load failed:", err));
+        .catch((err) => console.error("City Boundary load failed:", err));
     const chkCityBoundary = el("chkCityBoundary");
     if (chkCityBoundary) {
         chkCityBoundary.addEventListener("change", (e) => {
@@ -1160,7 +1210,6 @@ window.addEventListener("load", () => {
             setTimeout(() => window.map?.invalidateSize(true), 200);
         });
     }
-    // RESET VIEW 
     el("btnResetView")?.addEventListener("click", () => {
 
         map.setView([43.59, -79.64], 11);
@@ -1173,6 +1222,7 @@ window.addEventListener("load", () => {
         if (hideBox) hideBox.checked = false;
 
         clearRasters();
+        clearServiceAreaSelection();
         document.querySelectorAll('input[name="chartChoice"]').forEach(r => { r.checked = false; });
         clearChartPanel();
 
@@ -1189,7 +1239,6 @@ window.addEventListener("load", () => {
             popup.style.display === "block" ? "none" : "block";
     });
 
-    // FULLSCREEN
     el("btnFullscreen")?.addEventListener("click", () => {
         if (!document.fullscreenElement) {
             document.documentElement.requestFullscreen();
@@ -1199,3 +1248,6 @@ window.addEventListener("load", () => {
     });
    
 });
+
+
+

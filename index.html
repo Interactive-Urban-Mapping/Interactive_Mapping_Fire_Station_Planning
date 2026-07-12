@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
@@ -11,7 +11,7 @@
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <link rel="stylesheet" href="assets/styles.css?v=20260303" />
+    <link rel="stylesheet" href="assets/styles.css?v=20260712f" />
 
 </head>
 
@@ -67,17 +67,11 @@
             </div>
 
         </div>
-        <button id="btnResetView" title="Reset map view">
-            ⟳
-        </button>
+        <button id="btnResetView" title="Reset map view">&#10227;</button>
 
-        <button id="btnInfo" title="About the data">
-            ℹ
-        </button>
+        <button id="btnInfo" title="About the data">&#8505;</button>
 
-        <button id="btnFullscreen" title="Fullscreen">
-            ⛶
-        </button>
+        <button id="btnFullscreen" title="Fullscreen">&#9974;</button>
 
     </div>
 
@@ -126,7 +120,7 @@
     </div>
 
     <div id="layerToggle">
-        <button id="toggleUI" type="button" aria-expanded="true">☰ Layers &amp; Controls</button>
+        <button id="toggleUI" type="button" aria-expanded="true">Layers &amp; Controls</button>
 
         <div id="panelContent">
 
@@ -139,16 +133,21 @@
                 <input type="checkbox" id="chkCityBoundary" checked>
                 City Boundary
             </label>
-            <label>
-                <input type="checkbox" id="chkCoverage">
-                Fire Stations Service Coverage
-            </label>
-            <div id="coverageFilter" class="coverage-grid" style="display:none;">
-                <label><input type="radio" name="covRange" value="ALL" checked> All</label>
-                <label><input type="radio" name="covRange" value="0 - 4"> 0 – 4</label>
-                <label><input type="radio" name="covRange" value="4 - 6"> 4 – 6</label>
-                <label><input type="radio" name="covRange" value="6 - 8"> 6 – 8</label>
-            </div>
+            <details class="ui-group" open>
+                <summary>Service Area</summary>
+                <div class="ui-group-content">
+                    <label><input type="radio" name="serviceAreaChoice" value="21"> 21 Stations</label>
+                    <label><input type="radio" name="serviceAreaChoice" value="24"> 24 Stations</label>
+                    <label><input type="radio" name="serviceAreaChoice" value="27"> 27 Stations</label>
+                    <button id="btnClearServiceArea" type="button">Clear Service Area</button>
+                    <div id="coverageFilter" class="coverage-grid" style="display:none;">
+                        <label><input type="radio" name="covRange" value="ALL" checked> All</label>
+                        <label><input type="radio" name="covRange" value="0 - 4"> 0-4</label>
+                        <label><input type="radio" name="covRange" value="4 - 6"> 4-6</label>
+                        <label><input type="radio" name="covRange" value="6 - 8"> 6-8</label>
+                    </div>
+                </div>
+            </details>
             <hr>
 
             <!-- RASTERS -->
@@ -235,16 +234,13 @@
                         <div id="deltaPanel">
 
                             <div class="delta-actions">
-                                <button id="btnSetBaseline" type="button">
-                                    📌 Set current as baseline
+                                <button id="btnSetBaseline" type="button">Set current as baseline
                                 </button>
 
-                                <button id="btnResetBaseline" type="button" disabled>
-                                    ↩ Reset to baseline
+                                <button id="btnResetBaseline" type="button" disabled>Reset to baseline
                                 </button>
 
-                                <button id="btnClearBaseline" type="button" disabled>
-                                    ✖ Clear baseline
+                                <button id="btnClearBaseline" type="button" disabled>Clear baseline
                                 </button>
 
                                 <span id="baselineStatus">
@@ -348,12 +344,12 @@
 
                         <div>
                             <span style="display:inline-block;width:14px;height:14px;background:#006d6f;margin-right:6px"></span>
-                            0 – 4
+                            0-4
                         </div>
 
                         <div>
                             <span style="display:inline-block;width:14px;height:14px;background:#2aa198;margin-right:6px"></span>
-                            4 – 6
+                            4-6
                         </div>
 
                         <div>
@@ -374,7 +370,8 @@
         </div>
 
 
-        <script src="app.js?v=20260303"></script>
+        <script src="app.js?v=20260712f"></script>
 
 </body>
 </html>
+
