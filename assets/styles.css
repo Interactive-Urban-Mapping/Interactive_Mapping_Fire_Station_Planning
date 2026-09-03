@@ -485,6 +485,56 @@
             font-weight: 700;
             letter-spacing: 0.02em;
         }
+
+        #dashboardHeader .dashboard-kicker {
+            font-size: 14px;
+        }
+
+        #dashboardHeader .dashboard-title {
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        #layerToggle,
+        #chartPanel,
+        #layerToggle label,
+        .ui-group label,
+        .chart-group label,
+        #legend,
+        #legend strong,
+        .legend-scale,
+        #chartEmpty,
+        #baselineStatus,
+        #weights span,
+        #btnClearCharts,
+        #btnClearServiceArea,
+        .leaflet-control-layers-expanded {
+            font-family: var(--font-ui);
+            font-size: 14px;
+        }
+
+        #layerToggle label,
+        .ui-group label,
+        .chart-group label,
+        #legend,
+        .legend-scale,
+        #chartEmpty {
+            font-weight: 400;
+        }
+
+        #toggleUI,
+        .ui-group summary,
+        .chart-group summary,
+        .panel-heading span,
+        #legend strong,
+        #btnClearCharts,
+        #btnClearServiceArea,
+        .hide-all-control,
+        .basemap-control-title {
+            font-family: var(--font-ui);
+            font-size: 14px;
+            font-weight: 700;
+        }
         #deltaPanel {
             margin-top: 14px;
             padding-top: 10px;
