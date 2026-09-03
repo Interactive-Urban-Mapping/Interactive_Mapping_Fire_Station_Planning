@@ -1,7 +1,4 @@
 ﻿window.addEventListener("load", () => {
-    /* =====================================================
-       MAP
-    ===================================================== */
     let stationsLayer = null;
     let cityBoundaryLayer = null;
     let coverageLayers = {};
@@ -28,25 +25,44 @@
         }
     );
 
-    const cartoLightBase = L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    const lightGrayBase = L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
         {
-            attribution: "&copy; OpenStreetMap contributors &copy; CARTO | Processed with QGIS",
-            subdomains: "abcd",
-            maxZoom: 20
+            attribution: "Tiles &copy; Esri | Processed with QGIS",
+            maxNativeZoom: 16,
+            maxZoom: 19
+        }
+    );
+
+    const darkGrayBase = L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+        {
+            attribution: "Tiles &copy; Esri | Processed with QGIS",
+            maxNativeZoom: 16,
+            maxZoom: 19
         }
     );
     osmBase.addTo(map);
 
     const baseMaps = {
-        "OpenStreetMap": osmBase,
-        "Carto Light": cartoLightBase
+        "OpenStreetMap Standard": osmBase,
+        "Light Gray (keyless)": lightGrayBase,
+        "Dark Gray (keyless)": darkGrayBase
     };
 
-    L.control.layers(baseMaps, null, {
+    const baseLayerControl = L.control.layers(baseMaps, null, {
         position: "bottomright",
-        collapsed: false
+        collapsed: true
     }).addTo(map);
+    const baseLayerControlContainer = baseLayerControl.getContainer();
+    baseLayerControlContainer.setAttribute("aria-label", "Basemap options");
+    const baseLayerList = baseLayerControlContainer.querySelector(".leaflet-control-layers-list");
+    if (baseLayerList) {
+        const baseLayerTitle = document.createElement("div");
+        baseLayerTitle.className = "basemap-control-title";
+        baseLayerTitle.textContent = "Basemap";
+        baseLayerList.prepend(baseLayerTitle);
+    }
     L.control.scale().addTo(map);
     requestAnimationFrame(() => requestAnimationFrame(() => map.invalidateSize(true)));
     document.querySelectorAll('input[name="covRange"]').forEach(radio => {
@@ -61,9 +77,6 @@
             applyServiceAreaSelection(e.target.value);
         });
     });
-    /* =====================================================
-       PANES
-    ===================================================== */
     const panes = {
         rasters: 200,
         coverage: 700,
@@ -79,9 +92,6 @@
     map.getPane("popupPane").style.zIndex = 1000;
 
     const cacheBuster = "?v=" + Date.now();
-    /* =====================================================
-   MODEL WEIGHTS 
-===================================================== */
     let WEIGHTS = { CRITIC: null, RF: null, XGB: null };
     const CANON_ORDER = [
         "Incidents Heatmap",
@@ -142,9 +152,6 @@
     }
     loadWeights().catch(err => console.error("Failed to load weights JSON:", err));
 
-    /* =====================================================
-       CHART DATA
-    ===================================================== */
     const CHART_DATA_PATH = "./data/chart_data/";
     let DRIVE_TIME_DATA = {};
     let HIGH_VERYHIGH_DATA = {};
@@ -222,9 +229,6 @@
         }
         return true;
     }
-    /* =====================================================
-       CHARTS 
-    ===================================================== */
     let driveChartCoverage = null;
     let driveChartRaster = null;
     let chart2124 = null;
@@ -400,9 +404,6 @@
         updateLiveChangeUI();
     }
 
-    /* =====================================================
-   LIVE DELTA UI (Baseline + Change Summary + Delta Chart)
-===================================================== */
     function getNormalizedWeights01() {
         const raw = {};
         document.querySelectorAll('#weights input[type="range"]').forEach((r) => {
@@ -583,9 +584,6 @@
         renderDeltaWeightsChart(deltaArr);
         setShow("deltaChartWrap", true);  
     }, 120);
-    /* =====================================================
-       SAFE TILE LAYER + RASTER LAYERS
-    ===================================================== */
     const SafeTileLayer = L.TileLayer.extend({
         initialize(root, options) {
             this._root = root;
@@ -615,9 +613,6 @@
         "Land Use Risk": new SafeTileLayer("./data/Land_Use_VAL", { pane: "rasters" }),
         "Road Mobility": new SafeTileLayer("./data/Road_Mobility_VAL", { pane: "rasters" })
     };
-    /* =====================================================
-       MANUAL COMPOSITE 
-    ===================================================== */
     const colorSources = {
         "Incidents Heatmap": layers["Incidents Heatmap"],
         "Incidents Response Time": layers["Incidents Response Time"],
@@ -793,9 +788,6 @@
             updateLiveChangeUI();
         })
     );
-    /* =====================================================
-   MODEL COMPOSITE 
-===================================================== */
     function setSliderByKey(key, w01) {
         const slider = document.querySelector(`#weights input[type="range"][data-key="${key}"]`);
         if (!slider) return false;
@@ -866,9 +858,6 @@
     el("btnResetBaseline")?.addEventListener("click", resetToBaseline);
     el("btnClearBaseline")?.addEventListener("click", clearBaseline);
 
-    /* =====================================================
-       RASTER CONTROL
-    ===================================================== */
     function clearRasters() {
         Object.values(layers).forEach(l => map.removeLayer(l));
         if (map.hasLayer(compositeLayer)) map.removeLayer(compositeLayer);
@@ -915,9 +904,6 @@
         });
     }
 
-    /* =====================================================
-       SERVICE AREA POLYGONS
-    ===================================================== */
     const SERVICE_AREA_CONFIG = {
         "21": {
             label: "21 Stations",
@@ -1048,9 +1034,6 @@
 
     el("btnClearServiceArea")?.addEventListener("click", clearServiceAreaSelection);
 
-    /* =====================================================
-       STATIONS
-    ===================================================== */
     const flashingBlue = [];
     const flashingGreen = [];
 

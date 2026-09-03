@@ -5,13 +5,11 @@
     <title>Fire Station Planning Decision-support</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 
-    <!-- Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <link rel="stylesheet" href="assets/styles.css?v=20260712f" />
+    <link rel="stylesheet" href="assets/styles.css?v=20260903d" />
 
 </head>
 
@@ -67,16 +65,20 @@
             </div>
 
         </div>
-        <button id="btnResetView" title="Reset map view">&#10227;</button>
+        <button id="btnResetView" aria-label="Reset map view">&#10227;</button>
 
-        <button id="btnInfo" title="About the data">&#8505;</button>
+        <button id="btnInfo" aria-label="About the data">&#8505;</button>
 
-        <button id="btnFullscreen" title="Fullscreen">&#9974;</button>
+        <button id="btnFullscreen" aria-label="Fullscreen">&#9974;</button>
 
     </div>
 
     <div id="chartPanel">
 <div id="chartPanelContent">
+
+            <div class="panel-heading">
+                <span>Scenario Analysis</span>
+            </div>
 
             <div class="chart-options">
                 <details class="chart-group" open>
@@ -87,7 +89,7 @@
                     <label><input type="radio" name="chartChoice" value="Population Density"> Population Density</label>
                 </details>
 
-                <details class="chart-group" open>
+                <details class="chart-group">
                     <summary>Travel Time + Composite Layers</summary>
                     <label><input type="radio" name="chartChoice" value="CRITIC"> CRITIC Composite</label>
                     <label><input type="radio" name="chartChoice" value="RF"> Random Forest Composite</label>
@@ -97,7 +99,7 @@
                 <button id="btnClearCharts" type="button">Clear Charts</button>
             </div>
 
-            <div id="chartEmpty"><p>Select a chart group option to display charts in this panel.</p><p>The city had 21 fire stations in 2022 and planned 6 new stations. Three are under construction (blue ones) and three are under consideration (green ones).</p></div>
+            <div id="chartEmpty"><p>No analysis selected.</p></div>
 
             <div id="chartWrap_drive_coverage" class="chart-wrap" style="height:180px; display:none;">
                 <canvas id="chart_drive_coverage"></canvas>
@@ -115,7 +117,7 @@
                 <canvas id="chart_2427"></canvas>
             </div>
 
-        </div> <!-- chartPanelContent -->
+        </div>
 
     </div>
 
@@ -124,15 +126,19 @@
 
         <div id="panelContent">
 
-            <!-- VECTORS -->
-            <label>
-                <input type="checkbox" id="chkStations" checked>
-                Fire Stations
-            </label>
-            <label>
-                <input type="checkbox" id="chkCityBoundary" checked>
-                City Boundary
-            </label>
+            <details class="ui-group" open>
+                <summary>Map Features</summary>
+                <div class="ui-group-content">
+                    <label>
+                        <input type="checkbox" id="chkStations" checked>
+                        Fire Stations
+                    </label>
+                    <label>
+                        <input type="checkbox" id="chkCityBoundary" checked>
+                        City Boundary
+                    </label>
+                </div>
+            </details>
             <details class="ui-group" open>
                 <summary>Service Area</summary>
                 <div class="ui-group-content">
@@ -148,46 +154,43 @@
                     </div>
                 </div>
             </details>
-            <hr>
-
-            <!-- RASTERS -->
-            <details class="ui-group" open>
+            <details class="ui-group">
 
                 <summary>Input Layers</summary>
 
                 <div class="ui-group-content">
 
-                    <label title="Raster generated using Empirical Bayesian Kriging">
+                    <label>
                         <input type="radio" name="r" value="Incidents Heatmap">
                         Incidents Heatmap
                     </label>
 
-                    <label title="Raster generated using Empirical Bayesian Kriging">
+                    <label>
                         <input type="radio" name="r" value="Incidents Response Time">
                         Incidents Response Time
                     </label>
 
-                    <label title="Raster generated using Empirical Bayesian Kriging">
+                    <label>
                         <input type="radio" name="r" value="Number of Trucks Dispatched to Incidents">
                         Number of Trucks
                     </label>
 
-                    <label title="Raster generated using Dasymetric Polygon to Raster conversion">
+                    <label>
                         <input type="radio" name="r" value="Population Density">
                         Population Density
                     </label>
 
-                    <label title="Raster generated using Polygon to Raster conversion">
+                    <label>
                         <input type="radio" name="r" value="Land Use Risk">
                         Land Use Risk
                     </label>
 
-                    <label title="Raster generated using Polyline to Raster conversion">
+                    <label>
                         <input type="radio" name="r" value="Road Mobility">
                         Road Mobility
                     </label>
 
-                    <label title="Raster generated using Point to Raster conversion">
+                    <label>
                         <input type="radio" name="r" value="Fire Hydrants">
                         Fire Hydrants
                     </label>
@@ -196,11 +199,7 @@
 
             </details>
 
-            <hr>
-
-
-            <!-- COMPOSITE -->
-            <details class="ui-group" open>
+            <details class="ui-group">
 
                 <summary>Composite Layers</summary>
 
@@ -211,16 +210,10 @@
                         Composite Raster (CRITIC/RF/XGB & Manual)
                     </label>
 
-                    <!-- MODEL COMPOSITE -->
                     <div id="modelPanel" style="display:none; margin-top:10px;">
 
                         <div style="font-weight:700; margin-bottom:6px;">
                             Model Composite
-                        </div>
-
-                        <div style="font-size:12px; color:#555; margin-bottom:6px;">
-                            Select layers, then choose the weighting method or opt for manual weigths
-                            (Min 2 raster)
                         </div>
 
                         <div id="modelLayerList"></div>
@@ -258,7 +251,6 @@
 
                     </div>
 
-                    <!-- MANUAL WEIGHTS -->
                     <div id="weights" style="display:none">
 
                         <div>
@@ -309,7 +301,6 @@
 
             </details>
 
-            <!-- LEGENDS -->
             <div id="legend" class="ui-legend">
 
                 <div id="raster-legend">
@@ -360,9 +351,7 @@
                 </div>
             </div>
 
-            <hr>
-
-            <label>
+            <label class="hide-all-control">
                 <input type="checkbox" id="chkHideLayers">
                 Hide all layers
             </label>
@@ -370,7 +359,7 @@
         </div>
 
 
-        <script src="app.js?v=20260712f"></script>
+        <script src="app.js?v=20260903e"></script>
 
 </body>
 </html>
