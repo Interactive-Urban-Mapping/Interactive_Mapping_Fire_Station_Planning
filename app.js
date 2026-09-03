@@ -1,4 +1,6 @@
 ﻿window.addEventListener("load", () => {
+    if (window.Chart) Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+
     let stationsLayer = null;
     let cityBoundaryLayer = null;
     let coverageLayers = {};
