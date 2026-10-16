@@ -3,13 +3,14 @@
 <head>
     <meta charset="utf-8" />
     <title>Fire Station Planning Decision-support</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <link rel="stylesheet" href="assets/styles.css?v=20260903h" />
+    <link rel="stylesheet" href="assets/styles.css?v=20261016charts" />
+    <link rel="stylesheet" href="assets/panel-polish.css?v=20261016" />
 
 </head>
 
@@ -67,7 +68,7 @@
         </div>
         <button id="btnResetView" aria-label="Reset map view">&#10227;</button>
 
-        <button id="btnInfo" aria-label="About the data">&#8505;</button>
+        <button id="btnInfo" aria-expanded="false" aria-controls="infoPopup" aria-label="About the data">&#8505;</button>
 
         <button id="btnFullscreen" aria-label="Fullscreen">&#9974;</button>
 
@@ -77,9 +78,10 @@
 <div id="chartPanelContent">
 
             <div class="panel-heading">
-                <span>Scenario Analysis</span>
+                <button id="toggleCharts" type="button" aria-expanded="true" aria-controls="chartBody">Scenario Analysis</button>
             </div>
 
+            <div id="chartBody">
             <div class="chart-options">
                 <details class="chart-group" open>
                     <summary>Travel Time + Indicator Layers</summary>
@@ -117,12 +119,13 @@
                 <canvas id="chart_2427"></canvas>
             </div>
 
+            </div>
         </div>
 
     </div>
 
     <div id="layerToggle">
-        <button id="toggleUI" type="button" aria-expanded="true">Layers &amp; Controls</button>
+        <button id="toggleUI" aria-controls="panelContent" type="button" aria-expanded="true">Layers &amp; Controls</button>
 
         <div id="panelContent">
 
@@ -141,7 +144,7 @@
             </details>
             <details class="ui-group" open>
                 <summary>Service Area</summary>
-                <div class="ui-group-content">
+                <div class="ui-group-content service-options">
                     <label><input type="radio" name="serviceAreaChoice" value="21"> 21 Stations</label>
                     <label><input type="radio" name="serviceAreaChoice" value="24"> 24 Stations</label>
                     <label><input type="radio" name="serviceAreaChoice" value="27"> 27 Stations</label>
@@ -255,43 +258,43 @@
 
                         <div>
                             Incidents Heatmap
-                            <input type="range" min="0" max="1" step="0.01" value="0.25" data-key="Incidents Heatmap">
+                            <input type="range" min="0" max="1" step="0.01" value="0.25" aria-label="Incidents Heatmap weight" data-key="Incidents Heatmap">
                             <span data-out="Incidents Heatmap">0.25</span>
                         </div>
 
                         <div>
                             Response Time
-                            <input type="range" min="0" max="1" step="0.01" value="0.10" data-key="Incidents Response Time">
+                            <input type="range" min="0" max="1" step="0.01" value="0.10" aria-label="Incidents Response Time weight" data-key="Incidents Response Time">
                             <span data-out="Incidents Response Time">0.10</span>
                         </div>
 
                         <div>
                             Trucks
-                            <input type="range" min="0" max="1" step="0.01" value="0.15" data-key="Number of Trucks Dispatched to Incidents">
+                            <input type="range" min="0" max="1" step="0.01" value="0.15" aria-label="Number of Trucks Dispatched to Incidents weight" data-key="Number of Trucks Dispatched to Incidents">
                             <span data-out="Number of Trucks Dispatched to Incidents">0.15</span>
                         </div>
 
                         <div>
                             Population Density
-                            <input type="range" min="0" max="1" step="0.01" value="0.25" data-key="Population Density">
+                            <input type="range" min="0" max="1" step="0.01" value="0.25" aria-label="Population Density weight" data-key="Population Density">
                             <span data-out="Population Density">0.25</span>
                         </div>
 
                         <div>
                             Land Use Risk
-                            <input type="range" min="0" max="1" step="0.01" value="0.10" data-key="Land Use Risk">
+                            <input type="range" min="0" max="1" step="0.01" value="0.10" aria-label="Land Use Risk weight" data-key="Land Use Risk">
                             <span data-out="Land Use Risk">0.10</span>
                         </div>
 
                         <div>
                             Road Mobility
-                            <input type="range" min="0" max="1" step="0.01" value="0.20" data-key="Road Mobility">
+                            <input type="range" min="0" max="1" step="0.01" value="0.20" aria-label="Road Mobility weight" data-key="Road Mobility">
                             <span data-out="Road Mobility">0.20</span>
                         </div>
 
                         <div>
                             Fire Hydrants
-                            <input type="range" min="0" max="1" step="0.01" value="0.15" data-key="Fire Hydrants">
+                            <input type="range" min="0" max="1" step="0.01" value="0.15" aria-label="Fire Hydrants weight" data-key="Fire Hydrants">
                             <span data-out="Fire Hydrants">0.15</span>
                         </div>
 
@@ -359,7 +362,7 @@
         </div>
 
 
-        <script src="app.js?v=20260903f"></script>
+        <script src="app.js?v=20261016charts"></script>
 
 </body>
 </html>

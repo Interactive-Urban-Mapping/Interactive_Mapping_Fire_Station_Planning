@@ -1,0 +1,141 @@
+/* A quiet, consistent panel system; no changes to data or map symbology. */
+:root {
+    --panel-border: #dde4e3;
+    --panel-shadow: 0 3px 16px rgba(29, 49, 50, .045);
+    --text-main: #253b40;
+    --panel-accent: #416f69;
+    --panel-muted: #74817f;
+    --panel-tint: #f3f6f4;
+}
+html, body { background: #eef2f0; }
+#dashboardHeader {
+    color: var(--text-main);
+    background: #fff;
+    border-bottom: 1px solid var(--panel-border);
+    border-left: 5px solid var(--panel-accent);
+    padding-left: 20px;
+}
+#dashboardHeader .dashboard-kicker { color: #687b79; font-size: 11px; letter-spacing: .025em; }
+#dashboardHeader .dashboard-title { color: #223b40; font-weight: 650; }
+#layerToggle, #chartPanel { border-radius: 11px; padding: 14px; background: #fff; }
+#toggleUI, #toggleCharts {
+    min-height: 40px;
+    margin-bottom: 14px;
+    padding: 5px 1px 13px;
+    border-radius: 0;
+    border-bottom: 1px solid var(--panel-border);
+    background: #fff;
+    color: #263f42;
+    font-size: 16px;
+    font-weight: 650;
+    letter-spacing: -.025em;
+}
+#toggleUI::after, #toggleCharts::after {
+    display: grid;
+    place-items: center;
+    flex: 0 0 24px;
+    height: 24px;
+    border: 1px solid #e0e7e3;
+    border-radius: 6px;
+    color: #637b75;
+    font-size: 16px;
+    background: #f7f9f7;
+}
+#layerToggle.collapsed, #chartPanel.collapsed { height: 68px; }
+.ui-group, .chart-group {
+    margin-bottom: 11px;
+    padding: 3px 10px 5px;
+    border: 1px solid #e4e9e6;
+    border-radius: 8px;
+    background: #fff;
+}
+.ui-group[open], .chart-group[open] { background: #fff; }
+.ui-group summary, .chart-group summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 36px;
+    padding: 8px 0;
+    color: #465c58;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .055em;
+    list-style: none;
+}
+.ui-group summary::-webkit-details-marker, .chart-group summary::-webkit-details-marker { display: none; }
+.ui-group summary::after, .chart-group summary::after {
+    content: '';
+    width: 5px;
+    height: 5px;
+    flex-shrink: 0;
+    margin-right: 3px;
+    border-right: 1.5px solid #7c9189;
+    border-bottom: 1.5px solid #7c9189;
+    transform: rotate(-45deg);
+    transition: transform .15s;
+}
+.ui-group[open] summary::after, .chart-group[open] summary::after { transform: rotate(45deg); }
+.ui-group[open] > summary, .chart-group[open] > summary { border-bottom: 1px solid #edf0ed; }
+.ui-group-content { padding: 7px 0 3px; }
+.ui-group label, .chart-group label {
+    margin: 2px 0;
+    padding: 8px 7px !important;
+    color: #4b605e;
+    font-size: 12px;
+    border-radius: 5px;
+}
+.ui-group label:hover, .chart-group label:hover { background: #f4f7f4; }
+.ui-group label:has(input:checked), .chart-group label:has(input:checked) {
+    color: #305f53;
+    background: #edf4ee;
+    box-shadow: inset 2px 0 #5b8773;
+}
+input[type="radio"], input[type="checkbox"], input[type="range"] { accent-color: #4b7968; }
+#panelContent button, #btnClearCharts {
+    border-color: #dce5de;
+    color: #5b6f65;
+    background: #f6f8f5;
+    font-size: 11px;
+    font-weight: 600;
+}
+#panelContent button:hover:not(:disabled), #btnClearCharts:hover { background: #eaf1e9; border-color: #a9bdaa; }
+#panelContent #btnClearServiceArea { margin-top: 7px; }
+#panelContent #btnCRITIC, #panelContent #btnRF, #panelContent #btnXGB { flex: 1; background: #edf3ee; color: #355e4e; }
+.service-options { display: flex; flex-wrap: wrap; gap: 4px; }
+#layerToggle .service-options > label {
+    flex: 1 1 29%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 3px !important;
+    font-size: 11px;
+    background: #f6f8f5;
+    border: 1px solid transparent;
+    text-align: center;
+}
+#layerToggle .service-options > label:has(input:checked) { background: #eaf2e9; border-color: #b5cbb6; box-shadow: none; }
+.service-options > label input { margin: 0; }
+.service-options > button, .service-options > #coverageFilter { flex-basis: 100%; }
+.service-options #coverageFilter { margin: 6px 0 0; }
+#legend { padding: 12px; border: 1px solid #e4e9e6; border-radius: 8px; background: #f7f9f6; }
+#legend strong { color: #536b60; font-size: 11px; letter-spacing: .025em; }
+#vector-legend > div { padding: 2px 0; }
+.legend-scale, #weights span { color: #657d71; font-variant-numeric: tabular-nums; }
+#layerToggle .hide-all-control { background: #f5f7f4; border-color: #e3e8e1; color: #64766b; font-size: 12px; }
+#chartEmpty { background: #f6f8f5; border-color: #dce5da; color: #7c8b7e; padding: 24px 12px; font-size: 12px; }
+.chart-options { gap: 0; }
+#chartPanel .chart-wrap { background: #fff; border-color: #e2e8e2; box-shadow: none; border-radius: 8px; }
+#chartPanel .chart-wrap:hover { border-color: #c4d2c6; }
+#chartPanel .chart-group label:has(input:checked) { box-shadow: inset 2px 0 #5b8773; }
+#baselineStatus { color: #7a897c; }
+#map { border-color: #dce4df; }
+#mapToolbar button, .leaflet-control-layers { border-color: #dce4df !important; box-shadow: 0 2px 8px #263e3310 !important; }
+@media (max-width: 700px) {
+    #dashboardHeader { padding-left: 12px; }
+    #dashboardHeader .dashboard-kicker { font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .ui-group summary::after, .chart-group summary::after { transition: none; }
+}
