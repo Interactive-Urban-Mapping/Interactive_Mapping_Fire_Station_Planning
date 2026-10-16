@@ -247,54 +247,129 @@
         refSetter(null);
     }
 
-    function makeDriveTimeChart(canvasId, title, d21, d27) {
-        const canvas = el(canvasId);
-        if (!canvas) return null;
+    const chartNumber = new Intl.NumberFormat("en-CA", { maximumFractionDigits: 2 });
+    const reduceChartMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-        return new Chart(canvas.getContext("2d"), {
-            type: "bar",
-            data: {
-                labels: ["0-4", "4-6", "6+"],
-                datasets: [
-                    { label: "21-24 Stations", data: d21, backgroundColor: "#6ec1ff" },
-                    { label: "24-27 Stations", data: d27, backgroundColor: "#2ecc71" }
-                ]
+    // Label the existing values directly so comparisons don't depend on hover.
+    const coverageValueLabels = {
+        id: "coverageValueLabels",
+        afterDatasetsDraw(chart) {
+            const { ctx } = chart;
+            ctx.save();
+            ctx.font = "600 10px " + getComputedStyle(document.body).fontFamily;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "bottom";
+            chart.data.datasets.forEach((dataset, datasetIndex) => {
+                if (!chart.isDatasetVisible(datasetIndex)) return;
+                chart.getDatasetMeta(datasetIndex).data.forEach((bar, index) => {
+                    const value = Number(dataset.data[index]);
+                    if (!Number.isFinite(value)) return;
+                    ctx.fillStyle = dataset.borderColor;
+                    ctx.fillText(chartNumber.format(value), bar.x, bar.y - 5);
+                });
+            });
+            ctx.restore();
+        }
+    };
+
+    function coverageDataset(label, data, color, light) {
+        return {
+            label, data,
+            borderColor: color,
+            backgroundColor(context) {
+                const chart = context.chart;
+                if (!chart.chartArea) return color;
+                const gradient = chart.ctx.createLinearGradient(0, chart.chartArea.top, 0, chart.chartArea.bottom);
+                gradient.addColorStop(0, color);
+                gradient.addColorStop(1, light);
+                return gradient;
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { title: { display: true, text: title }, legend: { position: "bottom" } },
-                scales: {
-                    x: { title: { display: true, text: "Minutes" } },
-                    y: { beginAtZero: true, title: { display: true, text: "Coverage (%)" } }
+            hoverBackgroundColor: color,
+            borderWidth: 1,
+            borderRadius: 5,
+            borderSkipped: "bottom",
+            maxBarThickness: 32,
+            categoryPercentage: 0.76,
+            barPercentage: 0.84
+        };
+    }
+
+    function coverageChartOptions(title) {
+        return {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: reduceChartMotion ? false : { duration: 450, easing: "easeOutQuart" },
+            interaction: { mode: "index", intersect: false },
+            layout: { padding: { top: 6, right: 8, left: 2, bottom: 2 } },
+            plugins: {
+                title: {
+                    display: true, text: title.split(" - "), align: "start",
+                    color: "#183b50", font: { size: 12, weight: "600", lineHeight: 1.5 },
+                    padding: { top: 0, bottom: 25 }
+                },
+                legend: {
+                    position: "bottom", align: "start",
+                    labels: { usePointStyle: true, pointStyle: "rectRounded", boxWidth: 9, boxHeight: 9,
+                        padding: 16, color: "#496171", font: { size: 10 } },
+                    onHover(event) { event.native.target.style.cursor = "pointer"; },
+                    onLeave(event) { event.native.target.style.cursor = "default"; }
+                },
+                tooltip: {
+                    backgroundColor: "#163647", titleColor: "#ffffff", bodyColor: "#e3eef3",
+                    padding: 12, cornerRadius: 9, boxPadding: 5,
+                    usePointStyle: true, titleFont: { size: 12 }, bodyFont: { size: 11 },
+                    callbacks: {
+                        title: items => items.length ? `${items[0].label} minutes` : "",
+                        label: context => `${context.dataset.label}: ${chartNumber.format(context.parsed.y)}%`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false }, border: { display: false },
+                    ticks: { color: "#496171", font: { size: 11 }, padding: 7 },
+                    title: { display: true, text: "Minutes", color: "#768995", font: { size: 10 } }
+                },
+                y: {
+                    beginAtZero: true, grace: "18%", border: { display: false },
+                    grid: { color: "#eaf0f4", drawTicks: false },
+                    ticks: { maxTicksLimit: 5, padding: 8, color: "#768995", font: { size: 10 },
+                        callback: value => chartNumber.format(value) + "%" },
+                    title: { display: true, text: "Coverage (%)", color: "#768995", font: { size: 10 } }
                 }
             }
+        };
+    }
+
+    function makeCoverageChart(canvasId, title, datasets) {
+        const canvas = el(canvasId);
+        if (!canvas) return null;
+        canvas.setAttribute("role", "img");
+        canvas.setAttribute("aria-label", title + ". " + datasets.map(dataset =>
+            dataset.label + ": " + dataset.data.map((value, i) =>
+                ["0–4", "4–6", "6+"][i] + " minutes " + chartNumber.format(value) + "%"
+            ).join(", ")
+        ).join(". "));
+        return new Chart(canvas.getContext("2d"), {
+            type: "bar",
+            data: { labels: ["0–4", "4–6", "6+"], datasets },
+            plugins: [coverageValueLabels],
+            options: coverageChartOptions(title)
         });
     }
 
-    function makeHighChart(canvasId, title, high, veryHigh, palette) {
-        const canvas = el(canvasId);
-        if (!canvas) return null;
+    function makeDriveTimeChart(canvasId, title, d21, d27) {
+        return makeCoverageChart(canvasId, title, [
+            coverageDataset("21-24 Stations", d21, "#2868c7", "#8cb8ef"),
+            coverageDataset("24-27 Stations", d27, "#167e82", "#75c7bf")
+        ]);
+    }
 
-        return new Chart(canvas.getContext("2d"), {
-            type: "bar",
-            data: {
-                labels: ["0-4", "4-6", "6+"],
-                datasets: [
-                    { label: "High", data: high, backgroundColor: palette.light },
-                    { label: "Very High", data: veryHigh, backgroundColor: palette.dark }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { title: { display: true, text: title }, legend: { position: "bottom" } },
-                scales: {
-                    x: { title: { display: true, text: "Minutes" } },
-                    y: { beginAtZero: true, title: { display: true, text: "Coverage (%)" } }
-                }
-            }
-        });
+    function makeHighChart(canvasId, title, high, veryHigh, palette) {
+        return makeCoverageChart(canvasId, title, [
+            coverageDataset("High", high, "#bc7c19", "#f1cf87"),
+            coverageDataset("Very High", veryHigh, "#8b4e9f", "#cc9ddb")
+        ]);
     }
 
     function rasterDriveKey(active) {
@@ -336,7 +411,7 @@
         if (!DRIVE_TIME_DATA[key]) {
             if (!chartDataLoadFailed) {
                 chartDataReady.then(() => {
-                    if (DRIVE_TIME_DATA[key]) renderDashboardChart(key);
+                    if (document.querySelector('input[name="chartChoice"]:checked')?.value === key && DRIVE_TIME_DATA[key]) renderDashboardChart(key);
                 });
             }
             return;
@@ -522,6 +597,9 @@
                 labels,
                 datasets: [{
                     label: "Delta weight (current - baseline)",
+                    backgroundColor: data.map(value => value < 0 ? "#bf7550" : "#238c90"),
+                    borderRadius: 4,
+                    maxBarThickness: 18,
                     data
                 }]
             },
@@ -529,6 +607,7 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 indexAxis: "y",
+                animation: reduceChartMotion ? false : { duration: 350 },
                 plugins: {
                     legend: { display: true, position: "bottom" },
                     title: { display: true, text: "Indicator weight changes (approx)" },
@@ -784,9 +863,12 @@
         }
     });
     const compositeLayer = new CompositeLayer({ pane: "rasters", opacity: 0.9 });
+    const redrawComposite = debounce(() => {
+        if (map.hasLayer(compositeLayer)) compositeLayer.redraw();
+    }, 140);
     document.querySelectorAll('#weights input[type="range"]').forEach((sl) =>
         sl.addEventListener("input", () => {
-            if (map.hasLayer(compositeLayer)) compositeLayer.redraw();
+            redrawComposite();
             updateLiveChangeUI();
         })
     );
@@ -1185,12 +1267,40 @@
         });
     }
 
+    const compactLayout = window.matchMedia("(max-width: 1120px)");
+    const chartPanel = el("chartPanel");
+    const toggleCharts = el("toggleCharts");
+    function setPanelCollapsed(panel, button, collapsed) {
+        panel.classList.toggle("collapsed", collapsed);
+        button.setAttribute("aria-expanded", String(!collapsed));
+    }
+    function syncCompactLayout() {
+        if (compactLayout.matches) {
+            setPanelCollapsed(chartPanel, toggleCharts, true);
+            if (window.matchMedia("(max-width: 700px)").matches) {
+                setPanelCollapsed(el("layerToggle"), el("toggleUI"), true);
+            }
+        } else {
+            setPanelCollapsed(chartPanel, toggleCharts, false);
+        }
+        map.invalidateSize(true);
+    }
+    toggleCharts.addEventListener("click", () => {
+        const opening = chartPanel.classList.contains("collapsed");
+        setPanelCollapsed(chartPanel, toggleCharts, !opening);
+        if (opening && compactLayout.matches) setPanelCollapsed(el("layerToggle"), el("toggleUI"), true);
+        requestAnimationFrame(() => map.invalidateSize(true));
+    });
+    compactLayout.addEventListener("change", syncCompactLayout);
+    syncCompactLayout();
+
     const toggleUiButton = el("toggleUI");
     const layerPanel = el("layerToggle");
 
     if (toggleUiButton && layerPanel) {
         toggleUiButton.addEventListener("click", () => {
             layerPanel.classList.toggle("collapsed");
+            if (!layerPanel.classList.contains("collapsed") && compactLayout.matches) setPanelCollapsed(chartPanel, toggleCharts, true);
             toggleUiButton.setAttribute("aria-expanded", String(!layerPanel.classList.contains("collapsed")));
             setTimeout(() => window.map?.invalidateSize(true), 200);
         });
@@ -1220,10 +1330,20 @@
         const popup = el("infoPopup");
         if (!popup) return;
 
-        popup.style.display =
-            popup.style.display === "block" ? "none" : "block";
+        const open = popup.style.display !== "block";
+        popup.style.display = open ? "block" : "none";
+        el("btnInfo").setAttribute("aria-expanded", String(open));
     });
 
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+            el("infoPopup").style.display = "none";
+            el("btnInfo").setAttribute("aria-expanded", "false");
+        }
+    });
+    document.querySelectorAll("#mapToolbar button").forEach(button => {
+        button.title = button.getAttribute("aria-label");
+    });
     el("btnFullscreen")?.addEventListener("click", () => {
         if (!document.fullscreenElement) {
             document.documentElement.requestFullscreen();
