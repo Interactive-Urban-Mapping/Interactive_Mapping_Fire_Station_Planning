@@ -668,7 +668,7 @@
     const SafeTileLayer = L.TileLayer.extend({
         initialize(root, options) {
             this._root = root;
-            L.TileLayer.prototype.initialize.call(this, "{z}/{x}/{y}.png", options || {});
+            L.TileLayer.prototype.initialize.call(this, "{z}/{x}/{y}.png", { minNativeZoom: 9, maxNativeZoom: 16, maxZoom: 18, ...options });
         },
         getTileUrl(coords) {
             return `${this._root}/${coords.z}/${coords.x}/${coords.y}.png${cacheBuster}`;
@@ -738,6 +738,17 @@
     }
 
     const CompositeLayer = L.GridLayer.extend({
+        onAdd(map) {
+            // Preserve the original rendered surface. Switching source zooms would
+            // recompute each tile's percentile stretch and change its colors.
+            // Capture the resolution once, including when the layer is re-enabled.
+            if (this._referenceZoom === undefined) {
+                this._referenceZoom = Math.max(9, Math.min(16, Math.round(map.getZoom())));
+            }
+            this.options.minNativeZoom = this._referenceZoom;
+            this.options.maxNativeZoom = this._referenceZoom;
+            L.GridLayer.prototype.onAdd.call(this, map);
+        },
         createTile(coords, done) {
             const tile = L.DomUtil.create("canvas", "leaflet-tile");
             const size = this.getTileSize();
@@ -862,7 +873,7 @@
             return tile;
         }
     });
-    const compositeLayer = new CompositeLayer({ pane: "rasters", opacity: 0.9 });
+    const compositeLayer = new CompositeLayer({ pane: "rasters", opacity: 0.9, minZoom: 9, maxZoom: 18 });
     const redrawComposite = debounce(() => {
         if (map.hasLayer(compositeLayer)) compositeLayer.redraw();
     }, 140);
