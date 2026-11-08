@@ -6,6 +6,9 @@
     let coverageLayers = {};
     let activeCoverageKey = null;
     let activeRaster = null;
+    let compositeMethod = "Manual";
+    let baselineMethod = "Manual";
+    let rasterOpacity = null; // Preserve each layer's default until the user adjusts it.
 
     const map = L.map("map", {
         minZoom: 9,
@@ -94,7 +97,6 @@
     map.getPane("popupPane").style.zIndex = 1000;
 
     const cacheBuster = "?v=" + Date.now();
-    let WEIGHTS = { CRITIC: null, RF: null, XGB: null };
     const CANON_ORDER = [
         "Incidents Heatmap",
         "Incidents Response Time",
@@ -139,9 +141,6 @@
             fetch("./data/weights_xgb.json" + cacheBuster).then(res => res.json())
         ]);
 
-        WEIGHTS.CRITIC = c;
-        WEIGHTS.RF = r;
-        WEIGHTS.XGB = x;
         WEIGHTS_IDX.CRITIC = buildWeightsIndexExact(c);
         WEIGHTS_IDX.RF = buildWeightsIndexExact(r);
         WEIGHTS_IDX.XGB = buildWeightsIndexExact(x);
@@ -212,40 +211,17 @@
         DRIVE_TIME_DATA = {};
         HIGH_VERYHIGH_DATA = {};
     });
-    const CHART_ONLY_SET = new Set([
-        "Incidents Heatmap",
-        "Incidents Response Time",
-        "Number of Trucks Dispatched to Incidents",
-        "Population Density",
-        "Land Use Risk"
-    ]);
 
-    function isCompositeChartAllowed(selected) {
-        if (!selected || selected.length !== 5) return false;
-
-        const s = new Set(selected.map(x => String(x).trim()));
-        if (s.size !== 5) return false;
-
-        for (const k of CHART_ONLY_SET) {
-            if (!s.has(k)) return false;
-        }
-        return true;
-    }
     let driveChartCoverage = null;
     let driveChartRaster = null;
     let chart2124 = null;
     let chart2427 = null;
-    let chartsVisible = true;
     let baselineWeights01 = null;
     let deltaWeightsChart = null;
 
     const el = (id) => document.getElementById(id);
-    const setShow = (id, show) => { const n = el(id); if (!n) return; if (id === "chartPanel") { n.style.display = "block"; return; } n.style.display = show ? "block" : "none"; };
+    const setShow = (id, show) => { const n = el(id); if (!n) return; n.style.display = show ? "block" : "none"; };
 
-    function destroyChart(refSetter, chart) {
-        if (chart) chart.destroy();
-        refSetter(null);
-    }
 
     const chartNumber = new Intl.NumberFormat("en-CA", { maximumFractionDigits: 2 });
     const reduceChartMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -365,24 +341,13 @@
         ]);
     }
 
-    function makeHighChart(canvasId, title, high, veryHigh, palette) {
+    function makeHighChart(canvasId, title, high, veryHigh) {
         return makeCoverageChart(canvasId, title, [
             coverageDataset("High", high, "#bc7c19", "#f1cf87"),
             coverageDataset("Very High", veryHigh, "#8b4e9f", "#cc9ddb")
         ]);
     }
 
-    function rasterDriveKey(active) {
-        if (active === "CRITIC Composite") return "CRITIC";
-        if (active === "Random Forest Composite") return "RF";
-        if (active === "XGBoost Composite") return "XGB";
-
-        if (active === "Incidents Heatmap") return "Incidents Heatmap";
-        if (active === "Incidents Response Time") return "Incidents Response Time";
-        if (active === "Population Density") return "Population Density";
-
-        return null;
-    }
 
     const rasterTitle = (k) =>
         k === "CRITIC" ? "CRITIC" : k === "RF" ? "Random Forest" : k === "XGB" ? "XGBoost" : k;
@@ -420,7 +385,7 @@
         setShow("chartEmpty", false);
 
         if (key === "COVERAGE") {
-            setShow("chartWrap_drive_coverage", chartsVisible);
+            setShow("chartWrap_drive_coverage", true);
             driveChartCoverage = makeDriveTimeChart(
                 "chart_drive_coverage",
                 "Service Coverage Drive-Time",
@@ -430,7 +395,7 @@
             return;
         }
 
-        setShow("chartWrap_drive_composite", chartsVisible);
+        setShow("chartWrap_drive_composite", true);
         driveChartRaster = makeDriveTimeChart(
             "chart_drive_composite",
             `${rasterTitle(key)} - Drive-Time Coverage (minutes)`,
@@ -440,23 +405,21 @@
 
         const isComposite = key === "CRITIC" || key === "RF" || key === "XGB";
         if (isComposite && HIGH_VERYHIGH_DATA[key]) {
-            setShow("chartWrap_2124", chartsVisible);
-            setShow("chartWrap_2427", chartsVisible);
+            setShow("chartWrap_2124", true);
+            setShow("chartWrap_2427", true);
 
             chart2124 = makeHighChart(
                 "chart_2124",
                 `${rasterTitle(key)} - High vs Very High (21-24)`,
                 HIGH_VERYHIGH_DATA[key]["21_24"].High,
-                HIGH_VERYHIGH_DATA[key]["21_24"].VeryHigh,
-                { light: "#6ec1ff", dark: "#1e90ff" }
+                HIGH_VERYHIGH_DATA[key]["21_24"].VeryHigh
             );
 
             chart2427 = makeHighChart(
                 "chart_2427",
                 `${rasterTitle(key)} - High vs Very High (24-27)`,
                 HIGH_VERYHIGH_DATA[key]["24_27"].High,
-                HIGH_VERYHIGH_DATA[key]["24_27"].VeryHigh,
-                { light: "#7fe0a3", dark: "#2ecc71" }
+                HIGH_VERYHIGH_DATA[key]["24_27"].VeryHigh
             );
         }
     }
@@ -469,13 +432,15 @@
         document.querySelectorAll('input[name="chartChoice"]').forEach(r => { r.checked = false; });
         clearChartPanel();
     });
-    function setSlidersFromWeights01(w01) {
+    function setSlidersFromWeights01(w01, method = "Manual") {
         if (!w01) return;
+        compositeMethod = method;
 
      
         CANON_ORDER.forEach((key) => {
             setSliderByKey(key, w01[key] ?? 0);
         });
+        updateRasterLegend();
 
         if (map.hasLayer(compositeLayer)) compositeLayer.redraw();
         updateLiveChangeUI();
@@ -504,6 +469,7 @@
 
     function setBaselineToCurrent() {
         baselineWeights01 = getNormalizedWeights01();
+        baselineMethod = compositeMethod;
 
         const status = el("baselineStatus");
         if (status) status.textContent = "Baseline: set (current sliders)";
@@ -517,7 +483,7 @@
 
     function resetToBaseline() {
         if (!baselineWeights01) return;
-        setSlidersFromWeights01(baselineWeights01);
+        setSlidersFromWeights01(baselineWeights01, baselineMethod);
     }
 
     function clearBaseline() {
@@ -874,11 +840,47 @@
         }
     });
     const compositeLayer = new CompositeLayer({ pane: "rasters", opacity: 0.9, minZoom: 9, maxZoom: 18 });
+    const methodNames = { Manual: "Manual", CRITIC: "CRITIC", RF: "Random Forest (RF)", XGB: "XGBoost (XGB)" };
+
+    function activeRasterLayer() {
+        return activeRaster === "__COMPOSITE__" ? compositeLayer : layers[activeRaster];
+    }
+
+    function updateRasterLegend() {
+        const active = !!activeRaster;
+        const isComposite = activeRaster === "__COMPOSITE__";
+        const hasWeights = !isComposite || Object.values(getNormalizedWeights01()).some(w => w > 0);
+        el("legend-title").textContent = !active ? "No raster selected" :
+            isComposite ? `${methodNames[compositeMethod]} composite` : activeRaster;
+        el("raster-scale").hidden = !active || !hasWeights;
+        el("raster-display-controls").hidden = !active;
+        el("rasterOpacity").disabled = !active;
+        el("legend-min").textContent = isComposite ? "Lower" : "0 · Lower";
+        el("legend-max").textContent = isComposite ? "Higher" : "1 · Higher";
+        el("btnHideIndicatorRaster").disabled = !active || isComposite;
+        el("btnHideCompositeRaster").disabled = !isComposite;
+        const percent = Math.round((rasterOpacity ?? (isComposite ? 0.9 : 1)) * 100);
+        el("rasterOpacity").value = String(percent);
+        el("rasterOpacity").setAttribute("aria-valuetext", `${percent}% opacity`);
+        el("rasterOpacityValue").value = `${percent}%`;
+    }
+
+    el("rasterOpacity").addEventListener("input", event => {
+        if (!activeRaster) return;
+        rasterOpacity = Math.max(0, Math.min(1, Number(event.target.value) / 100));
+        // Leaflet adjusts only the layer's transparency, without recomputing pixels.
+        activeRasterLayer()?.setOpacity(rasterOpacity);
+        updateRasterLegend();
+    });
+    updateRasterLegend();
+
     const redrawComposite = debounce(() => {
         if (map.hasLayer(compositeLayer)) compositeLayer.redraw();
     }, 140);
     document.querySelectorAll('#weights input[type="range"]').forEach((sl) =>
         sl.addEventListener("input", () => {
+            compositeMethod = "Manual";
+            updateRasterLegend();
             redrawComposite();
             updateLiveChangeUI();
         })
@@ -909,20 +911,16 @@
     function getSelectedModelLayers() {
         return [...document.querySelectorAll('.modelLayer:checked')].map(n => n.value);
     }
-    function isValidSubset(selected) {
-        return selected.length >= 2;
-    }
-
-    let ACTIVE_METHOD = null; 
 
     function applyModelComposite(method) {
-        ACTIVE_METHOD = method;
 
         const selected = getSelectedModelLayers();
 
         if (selected.length < 2) {
             console.warn("Select at least 2 layers.");
             setAllSlidersZero();
+            compositeMethod = "Manual";
+            updateRasterLegend();
             compositeLayer.redraw();
             updateLiveChangeUI();
             return;
@@ -933,6 +931,8 @@
         if (!w) {
             console.warn("No weights found for subset:", canonicalSubsetKey(selected), "method:", method);
             setAllSlidersZero();
+            compositeMethod = "Manual";
+            updateRasterLegend();
             compositeLayer.redraw();
             updateLiveChangeUI();
             return;
@@ -942,6 +942,8 @@
         Object.keys(colorSources).forEach(layerName => {
             setSliderByKey(layerName, w[layerName] ?? 0);
         });
+        compositeMethod = method;
+        updateRasterLegend();
 
         if (map.hasLayer(compositeLayer)) compositeLayer.redraw();
 
@@ -958,14 +960,13 @@
         if (map.hasLayer(compositeLayer)) map.removeLayer(compositeLayer);
         activeRaster = null;
         setShow("modelPanel", false);
+        updateRasterLegend();
     }
 
     function applyRasterSelection(name) {
         clearRasters();
         activeRaster = name;
 
-        const hideBox = el("chkHideLayers");
-        if (hideBox) hideBox.checked = false;
 
         if (activeRaster === "__COMPOSITE__") {
             setShow("weights", true);
@@ -979,6 +980,8 @@
 
             if (layers[activeRaster]) layers[activeRaster].addTo(map);
         }
+        if (rasterOpacity !== null) activeRasterLayer()?.setOpacity(rasterOpacity);
+        updateRasterLegend();
     }
 
     document.querySelectorAll('input[name="r"]').forEach((radio) => {
@@ -987,17 +990,13 @@
         });
     });
 
-    const chkHideLayers = el("chkHideLayers");
-    if (chkHideLayers) {
-        chkHideLayers.addEventListener("change", (e) => {
-            if (!e.target.checked) return;
-
-            clearRasters();
-            clearServiceAreaSelection();
-            setShow("weights", false);
-            document.querySelectorAll('input[name="r"]').forEach((r) => (r.checked = false));
-        });
+    function hideRasterSelection() {
+        clearRasters();
+        setShow("weights", false);
+        document.querySelectorAll('input[name="r"]').forEach(radio => { radio.checked = false; });
     }
+    el("btnHideIndicatorRaster").addEventListener("click", hideRasterSelection);
+    el("btnHideCompositeRaster").addEventListener("click", hideRasterSelection);
 
     const SERVICE_AREA_CONFIG = {
         "21": {
@@ -1184,7 +1183,6 @@
                     const props = feature.properties;
                     const id = props?.Station_ID;
                     const address = props?.Address;
-                    const site = props?.Site_Name;
 
                     let icon = defaultStationIcon;
                     if ([123, 124, 125].includes(id)) icon = blueOn;
@@ -1324,8 +1322,6 @@
             r.checked = false;
         });
 
-        const hideBox = el("chkHideLayers");
-        if (hideBox) hideBox.checked = false;
 
         clearRasters();
         clearServiceAreaSelection();
@@ -1364,6 +1360,3 @@
     });
    
 });
-
-
-

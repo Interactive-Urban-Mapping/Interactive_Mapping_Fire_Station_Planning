@@ -123,7 +123,7 @@ input[type="radio"], input[type="checkbox"], input[type="range"] { accent-color:
 #legend strong { color: #536b60; font-size: 11px; letter-spacing: .025em; }
 #vector-legend > div { padding: 2px 0; }
 .legend-scale, #weights span { color: #657d71; font-variant-numeric: tabular-nums; }
-#layerToggle .hide-all-control { background: #f5f7f4; border-color: #e3e8e1; color: #64766b; font-size: 12px; }
+
 #chartEmpty { background: #f6f8f5; border-color: #dce5da; color: #7c8b7e; padding: 24px 12px; font-size: 12px; }
 .chart-options { gap: 0; }
 #chartPanel .chart-wrap { background: #fff; border-color: #e2e8e2; box-shadow: none; border-radius: 8px; }

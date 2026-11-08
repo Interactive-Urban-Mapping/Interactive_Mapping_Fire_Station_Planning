@@ -1,27 +1,13 @@
-/* Cochineal workspace typography and left-panel organization. */
-@font-face {
-    font-family: "Cochineal";
-    src: url("fonts/Cochineal-Roman.otf") format("opentype");
-    font-style: normal;
-    font-weight: 400;
-    font-display: swap;
-}
-@font-face {
-    font-family: "Cochineal";
-    src: url("fonts/Cochineal-Bold.otf") format("opentype");
-    font-style: normal;
-    font-weight: 700;
-    font-display: swap;
-}
-:root { --font-ui: "Cochineal", Georgia, serif; }
-body { font-size: 16px; font-variant-numeric: lining-nums; }
+/* Dashboard typography and panel layout. */
+:root { --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+body { font-size: 13px; font-variant-numeric: lining-nums; }
 button, input, select, textarea { font-family: var(--font-ui); }
-#dashboardHeader .dashboard-title { font-size: clamp(18px, 1.6vw, 23px); font-weight: 400; }
-#dashboardHeader .dashboard-kicker { font-size: 13px; letter-spacing: .015em; }
-#chartPanel label, #chartEmpty { font-size: 15px; line-height: 1.4; }
-#chartPanel summary, #btnClearCharts, #legend strong { font-size: 14px; letter-spacing: 0; }
-#toggleCharts { font-size: 21px; font-weight: 400; letter-spacing: 0; }
-.leaflet-control-layers-expanded, .leaflet-control-layers-expanded label { font-size: 15px; }
+#dashboardHeader .dashboard-title { font-size: clamp(15px, 1.3vw, 19px); font-weight: 600; }
+#dashboardHeader .dashboard-kicker { font-size: 11px; letter-spacing: 0; }
+#chartPanel label, #chartEmpty { font-size: 13px; line-height: 1.4; }
+#chartPanel summary, #btnClearCharts, #legend strong { font-size: 12px; letter-spacing: 0; }
+#toggleCharts { font-size: 17px; font-weight: 600; letter-spacing: 0; }
+.leaflet-control-layers-expanded, .leaflet-control-layers-expanded label { font-size: 13px; }
 
 /* A fixed heading with one scrollable workspace below it. */
 #layerToggle {
@@ -35,18 +21,17 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 #layerToggle #toggleUI {
     flex: 0 0 auto;
-    min-height: 82px;
+    min-height: 62px;
     margin: 0;
-    padding: 17px 18px 15px;
+    padding: 16px;
     border-bottom: 1px solid #dce4df;
     background: #f8faf7;
     letter-spacing: 0;
 }
 .panel-title-wrap { display: grid; gap: 4px; }
-.panel-eyebrow { color: #5d7568; font-size: 11px; font-weight: 700; letter-spacing: .09em; }
-.panel-title { color: #263f38; font-size: 25px; line-height: 1.1; font-weight: 400; }
-#layerToggle #toggleUI::after { flex-basis: 26px; height: 26px; font-family: Georgia, serif; }
-#layerToggle.collapsed { height: 83px; }
+.panel-title { color: #263f38; font-size: 18px; line-height: 1.2; font-weight: 600; }
+#layerToggle #toggleUI::after { flex-basis: 26px; height: 26px; font-family: var(--font-ui); }
+#layerToggle.collapsed { height: 63px; }
 #layerToggle #panelContent {
     flex: 1 1 auto;
     min-height: 0;
@@ -60,7 +45,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .utility-title { margin: 0 0 8px; font-size: 12px; font-weight: 700; color: #5d7568; letter-spacing: .065em; }
 .map-overlays { padding: 0 3px 15px; margin-bottom: 14px; border-bottom: 1px solid #e5eae5; }
 .overlay-options { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-#layerToggle .overlay-options label { display: flex; align-items: center; gap: 7px; padding: 7px 0; margin: 0; font-size: 15px; }
+#layerToggle .overlay-options label { display: flex; align-items: center; gap: 7px; padding: 7px 0; margin: 0; font-size: 13px; }
 #layerToggle .overlay-options input { margin: 0; flex-shrink: 0; }
 #layerToggle .ui-group { margin-bottom: 12px; padding: 0 11px 7px; border-radius: 9px; border-color: #dde6dd; }
 #layerToggle .ui-group > summary {
@@ -68,7 +53,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
     align-items: center;
     justify-content: flex-start;
     gap: 9px;
-    min-height: 48px;
+    min-height: 42px;
     padding: 11px 0;
     letter-spacing: 0;
     color: #2c493e;
@@ -76,9 +61,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 #layerToggle .ui-group > summary::after { margin-left: auto; }
 #layerToggle .ui-group[open] > summary { border-bottom-color: #e9eee8; }
-.section-number { flex: 0 0 24px; padding: 4px 0; text-align: center; font-size: 12px; line-height: 1; background: #eef3eb; border-radius: 5px; color: #58745e; }
-.section-title { font-size: 18px; line-height: 1.15; }
-#layerToggle .section-note { width: 100%; margin: 3px 0 9px; color: #637468; font-size: 14px; line-height: 1.4; }
+.section-title { font-size: 14px; line-height: 1.3; font-weight: 600; }
 #layerToggle .ui-group-content { padding: 9px 0 2px; }
 #layerToggle .ui-group label {
     display: flex;
@@ -86,7 +69,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
     gap: 8px;
     margin: 2px 0;
     padding: 7px !important;
-    font-size: 16px;
+    font-size: 13px;
     line-height: 1.25;
     color: #3f5749;
 }
@@ -95,7 +78,7 @@ button, input, select, textarea { font-family: var(--font-ui); }
 
 /* Station counts read as three equal choices, with their filter directly below. */
 #layerToggle .service-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-#layerToggle .service-options > .section-note, #layerToggle .service-options > button, #coverageFilter { grid-column: 1 / -1; }
+#layerToggle .service-options > button, #coverageFilter { grid-column: 1 / -1; }
 #layerToggle .service-options > label {
     display: grid;
     justify-items: center;
@@ -107,12 +90,12 @@ button, input, select, textarea { font-family: var(--font-ui); }
 }
 #layerToggle .service-options > label:has(input:checked) { border-color: #94b58d; background: #edf4e9; }
 #layerToggle .service-options > label input { margin-bottom: 3px; }
-.station-count { font-size: 25px; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
+.station-count { font-size: 21px; font-weight: 600; line-height: 1; font-variant-numeric: lining-nums tabular-nums; }
 .station-unit { font-size: 13px; line-height: 1.2; color: #637468; }
-#panelContent #btnClearServiceArea { min-height: 30px; margin: 2px 0 0; padding: 4px 8px; font-size: 14px; background: transparent; border: 0; color: #5e7460; text-decoration: underline; text-underline-offset: 3px; }
+#panelContent .section-clear-action { display: block; width: 100%; min-height: 30px; margin: 2px 0 0; padding: 4px 8px; font-size: 12px; background: transparent; border: 0; color: #5e7460; text-decoration: underline; text-underline-offset: 3px; }
 #layerToggle .service-options #coverageFilter { margin-top: 5px; }
 .coverage-caption { grid-column: 1 / -1; padding: 4px 0; font-size: 13px; color: #637468; }
-#layerToggle #coverageFilter label { justify-content: center; gap: 5px; font-size: 14px; padding: 7px 3px !important; }
+#layerToggle #coverageFilter label { justify-content: center; gap: 5px; font-size: 12px; padding: 7px 3px !important; }
 
 /* Composite controls follow the order: inputs, model, weights, comparison. */
 #layerToggle .composite-activate { align-items: flex-start; padding: 9px 7px !important; }
@@ -120,43 +103,52 @@ button, input, select, textarea { font-family: var(--font-ui); }
 .layer-label { display: block; }
 .layer-label small { display: block; margin-top: 4px; font-size: 13px; color: #637468; line-height: 1.35; }
 #modelPanel { padding-top: 13px; border-top: 1px solid #e5ebe1; margin-top: 11px; }
-.builder-title { margin: 0 0 7px; color: #34543d; font-size: 16px; line-height: 1.3; font-weight: 700; }
-#layerToggle #modelLayerList label { display: flex !important; align-items: flex-start; font-size: 15px; }
+.builder-title { margin: 0 0 7px; color: #34543d; font-size: 13px; line-height: 1.3; font-weight: 700; }
+#layerToggle #modelLayerList label { display: flex !important; align-items: flex-start; font-size: 13px; }
 #layerToggle #modelLayerList label input { margin-top: 2px; }
 .method-title { margin-top: 16px; }
 .method-buttons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-#panelContent .method-buttons button { min-width: 0; min-height: 36px; padding: 6px; font-size: 15px; border-color: #c5d5bf; background: #edf3e9; color: #34553c; }
+#panelContent .method-buttons button { min-width: 0; min-height: 36px; padding: 6px; font-size: 13px; border-color: #c5d5bf; background: #edf3e9; color: #34553c; }
 .manual-weights { margin-top: 18px; padding-top: 15px; border-top: 1px solid #e5ebe1; }
 #layerToggle #weights > .weight-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; margin: 0; padding: 9px 0 10px !important; border-bottom: 1px solid #edf0e9; background: transparent; box-shadow: none; }
-#weights .weight-name { float: none; min-width: 0; text-align: left; color: #3f5749; font-size: 15px; font-weight: 400; }
-#weights span[data-out] { float: none; min-width: 36px; font-size: 14px; font-weight: 700; color: #3a6344; font-variant-numeric: lining-nums tabular-nums; }
+#weights .weight-name { float: none; min-width: 0; text-align: left; color: #3f5749; font-size: 13px; font-weight: 400; }
+#weights span[data-out] { float: none; min-width: 36px; font-size: 12px; font-weight: 700; color: #3a6344; font-variant-numeric: lining-nums tabular-nums; }
 #weights input[type="range"] { grid-column: 1 / -1; margin: 6px 0 0; min-width: 0; width: 100%; }
 .baseline-details { margin-top: 17px; padding-top: 13px; border-top: 1px solid #e5ebe1; }
-.baseline-details > summary { cursor: pointer; color: #4c6651; font-size: 15px; line-height: 1.4; }
+.baseline-details > summary { cursor: pointer; color: #4c6651; font-size: 13px; line-height: 1.4; }
 #deltaPanel { margin-top: 9px; padding-top: 0; border-top: 0; }
 #deltaPanel .delta-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 #panelContent #btnSetBaseline { grid-column: 1 / -1; }
-#panelContent #deltaPanel button { font-size: 14px; }
+#panelContent #deltaPanel button { font-size: 12px; }
 #baselineStatus { grid-column: 1 / -1; font-size: 13px; line-height: 1.4; opacity: 1; }
-#changeSummary { margin-top: 12px; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+#changeSummary { margin-top: 12px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 #changeSummary > div { margin-bottom: 6px; }
 #deltaChartWrap { height: 390px; }
 #layerToggle .legend-group { margin-top: 16px; background: #f9fbf7; }
-#layerToggle .legend-group .section-title { font-size: 16px; }
-#layerToggle #legend { margin: 0; padding: 11px 0 5px; border: 0; background: transparent; border-radius: 0; font-size: 14px; }
-#legend strong, #legend .legend-scale { font-size: 14px; letter-spacing: 0; }
-#layerToggle .hide-all-control { display: flex; align-items: center; gap: 9px; padding: 10px !important; margin-top: 6px; font-size: 15px; font-weight: 400; }
-#layerToggle .hide-all-control input { margin: 0; }
+#layerToggle .legend-group .section-title { font-size: 13px; }
+#layerToggle #legend { margin: 0; padding: 11px 0 5px; border: 0; background: transparent; border-radius: 0; font-size: 12px; }
+#legend strong, #legend .legend-scale { font-size: 12px; letter-spacing: 0; }
 
-@media (min-width: 1121px) { :root { --left-panel-width: 328px; } }
+
+@media (min-width: 1121px) { :root { --left-panel-width: 308px; } }
 @media (min-width: 701px) and (max-width: 1120px) { :root { --left-panel-width: 304px; } }
 @media (max-width: 700px) {
     #dashboardHeader .dashboard-title { font-size: 17px; }
     #dashboardHeader .dashboard-kicker { font-size: 11px; }
-    #layerToggle #toggleUI { min-height: 74px; padding: 13px 15px; }
-    .panel-title { font-size: 23px; }
-    #layerToggle.collapsed { height: 75px; }
+    #layerToggle #toggleUI { min-height: 58px; padding: 13px 15px; }
+    .panel-title { font-size: 17px; }
+    #layerToggle.collapsed { height: 59px; }
     #layerToggle #panelContent { padding: 13px 10px; }
     .overlay-options { grid-template-columns: 1fr; gap: 0; }
     .map-overlays { padding-bottom: 10px; }
 }
+
+/* The raster key follows the active layer; opacity is display-only. */
+#legend-title { overflow-wrap: anywhere; }
+#raster-display-controls { min-width: 0; margin: 13px 0 0; padding: 11px 0 0; border: 0; border-top: 1px solid #e0e7dc; }
+.opacity-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+#layerToggle .opacity-heading label { margin: 0; padding: 0; font-size: 12px; font-weight: 600; }
+#rasterOpacityValue { color: #345c3d; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+#rasterOpacity { width: 100%; margin: 10px 0 0; cursor: pointer; }
+
+#panelContent .section-clear-action:disabled { opacity: .45; cursor: default; }
