@@ -1,484 +1,521 @@
-﻿<!DOCTYPE html>
+﻿
+<!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <title>Fire Station Planning Decision-support</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <link rel="preload" href="assets/fonts/Cochineal-Roman.otf" as="font" type="font/otf" crossorigin />
-    <link rel="preload" href="assets/fonts/Cochineal-Bold.otf" as="font" type="font/otf" crossorigin />
-    <link rel="stylesheet" href="assets/styles.css?v=20261016charts" />
-    <link rel="stylesheet" href="assets/panel-polish.css?v=20261108-cochineal" />
-
-    <link rel="stylesheet" href="assets/workspace.css?v=20261108-cochineal" />
-</head>
-
-<body>
-
-    <header id="dashboardHeader">
-        <p class="dashboard-kicker">Fire Station Planning Decision-support: City of Mississauga, Ontario, Canada</p>
-        <h1 class="dashboard-title">GeoAI and Multi-criteria Evaluation for Risk-informed Urban Fire Station Planning Study</h1>
-    </header>
-
-    <div id="map"></div>
-    <div id="mapToolbar">
-        <div id="infoPopup" style="display:none;">
-
-            <strong>Data Information</strong>
-
-            <div class="info-row">
-                <b>1. Incidents Heatmap</b><br>
-                Fire and Emergency Data 2022
-            </div>
-
-            <div class="info-row">
-                <b>2. Incident Response Times (NFPA)</b><br>
-                Fire and Emergency Data 2022
-            </div>
-
-            <div class="info-row">
-                <b>3. Number of Trucks Dispatched for Incidents</b><br>
-                Fire and Emergency Data 2022
-            </div>
-
-            <div class="info-row">
-                <b>4. Land Use Risk</b><br>
-                City of Mississauga Open Data Portal (2021)<br>
-                Community Risk Assessment (CRA) Guidance<br>
-                NFPA 1730 Life-Safety Guideline
-            </div>
-
-            <div class="info-row">
-                <b>5. Road Network Mobility</b><br>
-                City of Mississauga Open Data Portal (2023)
-            </div>
-
-            <div class="info-row">
-                <b>6. Fire Hydrants</b><br>
-                City of Mississauga Open Data Portal (2023)
-            </div>
-
-            <div class="info-row">
-                <b>7. Population Density</b><br>
-                City of Mississauga Open Data Portal (2021)<br>
-                Statistics Canada (2021)
-            </div>
-
-        </div>
-        <button id="btnResetView" aria-label="Reset map view">&#10227;</button>
-
-        <button id="btnInfo" aria-expanded="false" aria-controls="infoPopup" aria-label="About the data">&#8505;</button>
-
-        <button id="btnFullscreen" aria-label="Fullscreen">&#9974;</button>
-
+ <head>
+  <meta charset="utf-8"/>
+  <title>
+   Fire Station Planning Decision-support
+  </title>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js">
+  </script>
+  <link href="assets/styles.css?v=20261108-final" rel="stylesheet"/>
+  <link href="assets/panel-polish.css?v=20261108-final" rel="stylesheet"/>
+  <link href="assets/workspace.css?v=20261108-final" rel="stylesheet"/>
+ </head>
+ <body>
+  <header id="dashboardHeader">
+   <p class="dashboard-kicker">
+    Fire Station Planning Decision-support: City of Mississauga, Ontario, Canada
+   </p>
+   <h1 class="dashboard-title">
+    GeoAI and Multi-criteria Evaluation for Risk-informed Urban Fire Station Planning Study
+   </h1>
+  </header>
+  <div id="map">
+  </div>
+  <div id="mapToolbar">
+   <div id="infoPopup" style="display:none;">
+    <strong>
+     Data Information
+    </strong>
+    <div class="info-row">
+     <b>
+      1. Incidents Heatmap
+     </b>
+     <br/>
+     Fire and Emergency Data 2022
     </div>
-
-    <div id="chartPanel">
-<div id="chartPanelContent">
-
-            <div class="panel-heading">
-                <button id="toggleCharts" type="button" aria-expanded="true" aria-controls="chartBody">Scenario Analysis</button>
-            </div>
-
-            <div id="chartBody">
-            <div class="chart-options">
-                <details class="chart-group" open>
-                    <summary>Travel Time + Indicator Layers</summary>
-                    <label><input type="radio" name="chartChoice" value="COVERAGE"> Service Coverage</label>
-                    <label><input type="radio" name="chartChoice" value="Incidents Heatmap"> Incidents Heatmap</label>
-                    <label><input type="radio" name="chartChoice" value="Incidents Response Time"> Incident Response Time</label>
-                    <label><input type="radio" name="chartChoice" value="Population Density"> Population Density</label>
-                </details>
-
-                <details class="chart-group">
-                    <summary>Travel Time + Composite Layers</summary>
-                    <label><input type="radio" name="chartChoice" value="CRITIC"> CRITIC Composite</label>
-                    <label><input type="radio" name="chartChoice" value="RF"> Random Forest Composite</label>
-                    <label><input type="radio" name="chartChoice" value="XGB"> XGBoost Composite</label>
-                </details>
-
-                <button id="btnClearCharts" type="button">Clear Charts</button>
-            </div>
-
-            <div id="chartEmpty"><p>No analysis selected.</p></div>
-
-            <div id="chartWrap_drive_coverage" class="chart-wrap" style="height:180px; display:none;">
-                <canvas id="chart_drive_coverage"></canvas>
-            </div>
-
-            <div id="chartWrap_drive_composite" class="chart-wrap" style="height:180px; display:none; margin-top:14px;">
-                <canvas id="chart_drive_composite"></canvas>
-            </div>
-
-            <div id="chartWrap_2124" class="chart-wrap" style="height:180px; display:none; margin-top:14px;">
-                <canvas id="chart_2124"></canvas>
-            </div>
-
-            <div id="chartWrap_2427" class="chart-wrap" style="height:180px; display:none; margin-top:14px;">
-                <canvas id="chart_2427"></canvas>
-            </div>
-
-            </div>
-        </div>
-
+    <div class="info-row">
+     <b>
+      2. Incident Response Times (NFPA)
+     </b>
+     <br/>
+     Fire and Emergency Data 2022
     </div>
-
-    <div id="layerToggle">
- <button aria-controls="panelContent" aria-expanded="true" id="toggleUI" type="button">
-  <span class="panel-title-wrap">
-   <span class="panel-eyebrow">
-    PLANNING WORKSPACE
-   </span>
-   <span class="panel-title">
-    Layers &amp; controls
-   </span>
-  </span>
- </button>
- <div id="panelContent">
-  <section aria-labelledby="overlaysTitle" class="map-overlays">
-   <h2 class="utility-title" id="overlaysTitle">
-    Map context
-   </h2>
-   <div class="overlay-options">
-    <label>
-     <input checked="" id="chkStations" type="checkbox"/>
-     Fire Stations
-    </label>
-    <label>
-     <input checked="" id="chkCityBoundary" type="checkbox"/>
-     City Boundary
-    </label>
-   </div>
-  </section>
-  <details class="ui-group coverage-group" open="">
-   <summary>
-    <span aria-hidden="true" class="section-number">
-     01
-    </span>
-    <span class="section-title">
-     Service coverage
-    </span>
-   </summary>
-   <div class="ui-group-content service-options">
-    <p class="section-note">
-     Compare coverage by station count.
-    </p>
-    <label>
-     <input name="serviceAreaChoice" type="radio" value="21"/>
-     <span class="station-count">
-      21
-     </span>
-     <span class="station-unit">
-      stations
-     </span>
-    </label>
-    <label>
-     <input name="serviceAreaChoice" type="radio" value="24"/>
-     <span class="station-count">
-      24
-     </span>
-     <span class="station-unit">
-      stations
-     </span>
-    </label>
-    <label>
-     <input name="serviceAreaChoice" type="radio" value="27"/>
-     <span class="station-count">
-      27
-     </span>
-     <span class="station-unit">
-      stations
-     </span>
-    </label>
-    <button id="btnClearServiceArea" type="button">
-     Clear coverage
-    </button>
-    <div class="coverage-grid" id="coverageFilter" style="display:none;">
-     <span class="coverage-caption">
-      Drive time · minutes
-     </span>
-     <label>
-      <input checked="" name="covRange" type="radio" value="ALL"/>
-      All
-     </label>
-     <label>
-      <input name="covRange" type="radio" value="0 - 4"/>
-      0-4
-     </label>
-     <label>
-      <input name="covRange" type="radio" value="4 - 6"/>
-      4-6
-     </label>
-     <label>
-      <input name="covRange" type="radio" value="6 - 8"/>
-      6-8
-     </label>
+    <div class="info-row">
+     <b>
+      3. Number of Trucks Dispatched for Incidents
+     </b>
+     <br/>
+     Fire and Emergency Data 2022
+    </div>
+    <div class="info-row">
+     <b>
+      4. Land Use Risk
+     </b>
+     <br/>
+     City of Mississauga Open Data Portal (2021)
+     <br/>
+     Community Risk Assessment (CRA) Guidance
+     <br/>
+     NFPA 1730 Life-Safety Guideline
+    </div>
+    <div class="info-row">
+     <b>
+      5. Road Network Mobility
+     </b>
+     <br/>
+     City of Mississauga Open Data Portal (2023)
+    </div>
+    <div class="info-row">
+     <b>
+      6. Fire Hydrants
+     </b>
+     <br/>
+     City of Mississauga Open Data Portal (2023)
+    </div>
+    <div class="info-row">
+     <b>
+      7. Population Density
+     </b>
+     <br/>
+     City of Mississauga Open Data Portal (2021)
+     <br/>
+     Statistics Canada (2021)
     </div>
    </div>
-  </details>
-  <details class="ui-group" open="">
-   <summary>
-    <span aria-hidden="true" class="section-number">
-     02
-    </span>
-    <span class="section-title">
-     Explore indicators
-    </span>
-   </summary>
-   <div class="ui-group-content">
-    <p class="section-note">
-     Display one indicator on the map.
-    </p>
-    <label>
-     <input name="r" type="radio" value="Incidents Heatmap"/>
-     Incidents Heatmap
-    </label>
-    <label>
-     <input name="r" type="radio" value="Incidents Response Time"/>
-     Incidents Response Time
-    </label>
-    <label>
-     <input name="r" type="radio" value="Number of Trucks Dispatched to Incidents"/>
-     Number of Trucks
-    </label>
-    <label>
-     <input name="r" type="radio" value="Population Density"/>
-     Population Density
-    </label>
-    <label>
-     <input name="r" type="radio" value="Land Use Risk"/>
-     Land Use Risk
-    </label>
-    <label>
-     <input name="r" type="radio" value="Road Mobility"/>
-     Road Mobility
-    </label>
-    <label>
-     <input name="r" type="radio" value="Fire Hydrants"/>
-     Fire Hydrants
-    </label>
-   </div>
-  </details>
-  <details class="ui-group">
-   <summary>
-    <span aria-hidden="true" class="section-number">
-     03
-    </span>
-    <span class="section-title">
-     Build a composite
-    </span>
-   </summary>
-   <div class="ui-group-content">
-    <label class="composite-activate">
-     <input name="r" type="radio" value="__COMPOSITE__"/>
-     <span class="layer-label">
-      Create a composite raster
-      <small>
-       CRITIC, RF, XGB or manual weights
-      </small>
-     </span>
-    </label>
-    <div id="modelPanel" style="display:none;">
-     <h3 class="builder-title">
-      Select indicators
-     </h3>
-     <div id="modelLayerList">
-     </div>
-     <h3 class="builder-title method-title">
-      Apply model weights
-     </h3>
-     <div aria-label="Apply model weights" class="method-buttons" role="group">
-      <button id="btnCRITIC" type="button">
-       CRITIC
-      </button>
-      <button id="btnRF" type="button">
-       RF
-      </button>
-      <button id="btnXGB" type="button">
-       XGB
+   <button aria-label="Reset map view" id="btnResetView">
+    ⟳
+   </button>
+   <button aria-controls="infoPopup" aria-expanded="false" aria-label="About the data" id="btnInfo">
+    ℹ
+   </button>
+   <button aria-label="Fullscreen" id="btnFullscreen">
+    ⛶
+   </button>
+  </div>
+  <div id="chartPanel">
+   <div id="chartPanelContent">
+    <div class="panel-heading">
+     <button aria-controls="chartBody" aria-expanded="true" id="toggleCharts" type="button">
+      Scenario Analysis
+     </button>
+    </div>
+    <div id="chartBody">
+     <div class="chart-options">
+      <details class="chart-group" open="">
+       <summary>
+        Travel Time + Indicator Layers
+       </summary>
+       <label>
+        <input name="chartChoice" type="radio" value="COVERAGE"/>
+        Service Coverage
+       </label>
+       <label>
+        <input name="chartChoice" type="radio" value="Incidents Heatmap"/>
+        Incidents Heatmap
+       </label>
+       <label>
+        <input name="chartChoice" type="radio" value="Incidents Response Time"/>
+        Incident Response Time
+       </label>
+       <label>
+        <input name="chartChoice" type="radio" value="Population Density"/>
+        Population Density
+       </label>
+      </details>
+      <details class="chart-group">
+       <summary>
+        Travel Time + Composite Layers
+       </summary>
+       <label>
+        <input name="chartChoice" type="radio" value="CRITIC"/>
+        CRITIC Composite
+       </label>
+       <label>
+        <input name="chartChoice" type="radio" value="RF"/>
+        Random Forest Composite
+       </label>
+       <label>
+        <input name="chartChoice" type="radio" value="XGB"/>
+        XGBoost Composite
+       </label>
+      </details>
+      <button id="btnClearCharts" type="button">
+       Clear Charts
       </button>
      </div>
-     <section aria-labelledby="manualWeightsTitle" class="manual-weights">
-      <h3 class="builder-title" id="manualWeightsTitle">
-       Adjust indicator weights
-      </h3>
-      <p class="section-note">
-       Fine-tune the model or set your own mix.
+     <div id="chartEmpty">
+      <p>
+       No analysis selected.
       </p>
-      <div id="weights" style="display:none">
-       <label class="weight-row" for="indicatorWeight0">
-        <span class="weight-name">
-         Incidents Heatmap
-        </span>
-        <span data-out="Incidents Heatmap">
-         0.25
-        </span>
-        <input aria-label="Incidents Heatmap weight" data-key="Incidents Heatmap" id="indicatorWeight0" max="1" min="0" step="0.01" type="range" value="0.25"/>
-       </label>
-       <label class="weight-row" for="indicatorWeight1">
-        <span class="weight-name">
-         Response Time
-        </span>
-        <span data-out="Incidents Response Time">
-         0.10
-        </span>
-        <input aria-label="Incidents Response Time weight" data-key="Incidents Response Time" id="indicatorWeight1" max="1" min="0" step="0.01" type="range" value="0.10"/>
-       </label>
-       <label class="weight-row" for="indicatorWeight2">
-        <span class="weight-name">
-         Trucks
-        </span>
-        <span data-out="Number of Trucks Dispatched to Incidents">
-         0.15
-        </span>
-        <input aria-label="Number of Trucks Dispatched to Incidents weight" data-key="Number of Trucks Dispatched to Incidents" id="indicatorWeight2" max="1" min="0" step="0.01" type="range" value="0.15"/>
-       </label>
-       <label class="weight-row" for="indicatorWeight3">
-        <span class="weight-name">
-         Population Density
-        </span>
-        <span data-out="Population Density">
-         0.25
-        </span>
-        <input aria-label="Population Density weight" data-key="Population Density" id="indicatorWeight3" max="1" min="0" step="0.01" type="range" value="0.25"/>
-       </label>
-       <label class="weight-row" for="indicatorWeight4">
-        <span class="weight-name">
-         Land Use Risk
-        </span>
-        <span data-out="Land Use Risk">
-         0.10
-        </span>
-        <input aria-label="Land Use Risk weight" data-key="Land Use Risk" id="indicatorWeight4" max="1" min="0" step="0.01" type="range" value="0.10"/>
-       </label>
-       <label class="weight-row" for="indicatorWeight5">
-        <span class="weight-name">
-         Road Mobility
-        </span>
-        <span data-out="Road Mobility">
-         0.20
-        </span>
-        <input aria-label="Road Mobility weight" data-key="Road Mobility" id="indicatorWeight5" max="1" min="0" step="0.01" type="range" value="0.20"/>
-       </label>
-       <label class="weight-row" for="indicatorWeight6">
-        <span class="weight-name">
-         Fire Hydrants
-        </span>
-        <span data-out="Fire Hydrants">
-         0.15
-        </span>
-        <input aria-label="Fire Hydrants weight" data-key="Fire Hydrants" id="indicatorWeight6" max="1" min="0" step="0.01" type="range" value="0.15"/>
-       </label>
-      </div>
-     </section>
-     <details class="baseline-details">
-      <summary>
-       Baseline comparison
-      </summary>
-      <div id="deltaPanel">
-       <div class="delta-actions">
-        <button id="btnSetBaseline" type="button">
-         Save baseline
-        </button>
-        <button disabled="" id="btnResetBaseline" type="button">
-         Restore
-        </button>
-        <button disabled="" id="btnClearBaseline" type="button">
-         Clear
-        </button>
-        <span id="baselineStatus">
-         Baseline: not set
-        </span>
-       </div>
-       <div id="changeSummary">
-       </div>
-       <div id="deltaChartWrap">
-        <canvas id="chart_delta_weights">
-        </canvas>
-       </div>
-      </div>
-     </details>
+     </div>
+     <div class="chart-wrap" id="chartWrap_drive_coverage" style="height:180px; display:none;">
+      <canvas id="chart_drive_coverage">
+      </canvas>
+     </div>
+     <div class="chart-wrap" id="chartWrap_drive_composite" style="height:180px; display:none; margin-top:14px;">
+      <canvas id="chart_drive_composite">
+      </canvas>
+     </div>
+     <div class="chart-wrap" id="chartWrap_2124" style="height:180px; display:none; margin-top:14px;">
+      <canvas id="chart_2124">
+      </canvas>
+     </div>
+     <div class="chart-wrap" id="chartWrap_2427" style="height:180px; display:none; margin-top:14px;">
+      <canvas id="chart_2427">
+      </canvas>
+     </div>
     </div>
    </div>
-  </details>
-  <details class="ui-group legend-group" open="">
-   <summary>
-    <span class="section-title">
-     Map legend
+  </div>
+  <div id="layerToggle">
+   <button aria-controls="panelContent" aria-expanded="true" id="toggleUI" type="button">
+    <span class="panel-title-wrap">
+     <span class="panel-title">
+      Layers &amp; controls
+     </span>
     </span>
-   </summary>
-   <div class="ui-legend" id="legend">
-    <div id="raster-legend">
-     <strong id="legend-title">
-      Raster Layer
-     </strong>
-     <div class="legend-gradient">
+   </button>
+   <div id="panelContent">
+    <section aria-labelledby="overlaysTitle" class="map-overlays">
+     <h2 class="utility-title" id="overlaysTitle">
+      Map context
+     </h2>
+     <div class="overlay-options">
+      <label>
+       <input checked="" id="chkStations" type="checkbox"/>
+       Fire Stations
+      </label>
+      <label>
+       <input checked="" id="chkCityBoundary" type="checkbox"/>
+       City Boundary
+      </label>
      </div>
-     <div class="legend-scale">
-      <span id="legend-min">
-       0.00
+    </section>
+    <details class="ui-group coverage-group" open="">
+     <summary>
+      <span class="section-title">
+       Service coverage
       </span>
-      <span id="legend-max">
-       1.00
-      </span>
-     </div>
-    </div>
-    <div id="vector-legend" style="margin-top:14px">
-     <strong>
-      Fire Stations
-     </strong>
-     <div>
-      <span style="display:inline-block;width:14px;height:14px;background:#ffffff;border:1px solid #111;margin-right:6px">
-      </span>
-      Existing
-     </div>
-     <div>
-      <span style="display:inline-block;width:14px;height:14px;background:#1e90ff;border:1px solid #111;margin-right:6px">
-      </span>
-      Committed
-     </div>
-     <div>
-      <span style="display:inline-block;width:14px;height:14px;background:#2ecc71;border:1px solid #111;margin-right:6px">
-      </span>
-      Planned
-     </div>
-     <div id="coverage-legend" style="margin-top:12px; display:none">
-      <strong>
-       Drive Time (minutes)
-      </strong>
-      <div>
-       <span style="display:inline-block;width:14px;height:14px;background:#006d6f;margin-right:6px">
+     </summary>
+     <div class="ui-group-content service-options">
+      <label>
+       <input name="serviceAreaChoice" type="radio" value="21"/>
+       <span class="station-count">
+        21
        </span>
-       0-4
-      </div>
-      <div>
-       <span style="display:inline-block;width:14px;height:14px;background:#2aa198;margin-right:6px">
+       <span class="station-unit">
+        stations
        </span>
-       4-6
-      </div>
-      <div>
-       <span style="display:inline-block;width:14px;height:14px;background:#b2dfdb;margin-right:6px">
+      </label>
+      <label>
+       <input name="serviceAreaChoice" type="radio" value="24"/>
+       <span class="station-count">
+        24
        </span>
-       6 - 8
+       <span class="station-unit">
+        stations
+       </span>
+      </label>
+      <label>
+       <input name="serviceAreaChoice" type="radio" value="27"/>
+       <span class="station-count">
+        27
+       </span>
+       <span class="station-unit">
+        stations
+       </span>
+      </label>
+      <button class="section-clear-action" id="btnClearServiceArea" type="button">
+       Clear coverage
+      </button>
+      <div class="coverage-grid" id="coverageFilter" style="display:none;">
+       <span class="coverage-caption">
+        Drive time · minutes
+       </span>
+       <label>
+        <input checked="" name="covRange" type="radio" value="ALL"/>
+        All
+       </label>
+       <label>
+        <input name="covRange" type="radio" value="0 - 4"/>
+        0-4
+       </label>
+       <label>
+        <input name="covRange" type="radio" value="4 - 6"/>
+        4-6
+       </label>
+       <label>
+        <input name="covRange" type="radio" value="6 - 8"/>
+        6-8
+       </label>
       </div>
      </div>
-    </div>
+    </details>
+    <details class="ui-group" open="">
+     <summary>
+      <span class="section-title">
+       Explore indicators
+      </span>
+     </summary>
+     <div class="ui-group-content">
+      <label>
+       <input name="r" type="radio" value="Incidents Heatmap"/>
+       Incidents Heatmap
+      </label>
+      <label>
+       <input name="r" type="radio" value="Incidents Response Time"/>
+       Incidents Response Time
+      </label>
+      <label>
+       <input name="r" type="radio" value="Number of Trucks Dispatched to Incidents"/>
+       Number of Trucks
+      </label>
+      <label>
+       <input name="r" type="radio" value="Population Density"/>
+       Population Density
+      </label>
+      <label>
+       <input name="r" type="radio" value="Land Use Risk"/>
+       Land Use Risk
+      </label>
+      <label>
+       <input name="r" type="radio" value="Road Mobility"/>
+       Road Mobility
+      </label>
+      <label>
+       <input name="r" type="radio" value="Fire Hydrants"/>
+       Fire Hydrants
+      </label>
+      <button class="section-clear-action" disabled="" id="btnHideIndicatorRaster" type="button">
+       Hide raster
+      </button>
+     </div>
+    </details>
+    <details class="ui-group">
+     <summary>
+      <span class="section-title">
+       Build a composite
+      </span>
+     </summary>
+     <div class="ui-group-content">
+      <label class="composite-activate">
+       <input name="r" type="radio" value="__COMPOSITE__"/>
+       <span class="layer-label">
+        Create a composite raster
+        <small>
+         CRITIC, RF, XGB or manual weights
+        </small>
+       </span>
+      </label>
+      <button class="section-clear-action" disabled="" id="btnHideCompositeRaster" type="button">
+       Hide raster
+      </button>
+      <div id="modelPanel" style="display:none;">
+       <h3 class="builder-title">
+        Select indicators
+       </h3>
+       <div id="modelLayerList">
+       </div>
+       <h3 class="builder-title method-title">
+        Apply model weights
+       </h3>
+       <div aria-label="Apply model weights" class="method-buttons" role="group">
+        <button id="btnCRITIC" type="button">
+         CRITIC
+        </button>
+        <button id="btnRF" type="button">
+         RF
+        </button>
+        <button id="btnXGB" type="button">
+         XGB
+        </button>
+       </div>
+       <section aria-labelledby="manualWeightsTitle" class="manual-weights">
+        <h3 class="builder-title" id="manualWeightsTitle">
+         Adjust indicator weights
+        </h3>
+        <div id="weights" style="display:none">
+         <label class="weight-row" for="indicatorWeight0">
+          <span class="weight-name">
+           Incidents Heatmap
+          </span>
+          <span data-out="Incidents Heatmap">
+           0.25
+          </span>
+          <input aria-label="Incidents Heatmap weight" data-key="Incidents Heatmap" id="indicatorWeight0" max="1" min="0" step="0.01" type="range" value="0.25"/>
+         </label>
+         <label class="weight-row" for="indicatorWeight1">
+          <span class="weight-name">
+           Response Time
+          </span>
+          <span data-out="Incidents Response Time">
+           0.10
+          </span>
+          <input aria-label="Incidents Response Time weight" data-key="Incidents Response Time" id="indicatorWeight1" max="1" min="0" step="0.01" type="range" value="0.10"/>
+         </label>
+         <label class="weight-row" for="indicatorWeight2">
+          <span class="weight-name">
+           Trucks
+          </span>
+          <span data-out="Number of Trucks Dispatched to Incidents">
+           0.15
+          </span>
+          <input aria-label="Number of Trucks Dispatched to Incidents weight" data-key="Number of Trucks Dispatched to Incidents" id="indicatorWeight2" max="1" min="0" step="0.01" type="range" value="0.15"/>
+         </label>
+         <label class="weight-row" for="indicatorWeight3">
+          <span class="weight-name">
+           Population Density
+          </span>
+          <span data-out="Population Density">
+           0.25
+          </span>
+          <input aria-label="Population Density weight" data-key="Population Density" id="indicatorWeight3" max="1" min="0" step="0.01" type="range" value="0.25"/>
+         </label>
+         <label class="weight-row" for="indicatorWeight4">
+          <span class="weight-name">
+           Land Use Risk
+          </span>
+          <span data-out="Land Use Risk">
+           0.10
+          </span>
+          <input aria-label="Land Use Risk weight" data-key="Land Use Risk" id="indicatorWeight4" max="1" min="0" step="0.01" type="range" value="0.10"/>
+         </label>
+         <label class="weight-row" for="indicatorWeight5">
+          <span class="weight-name">
+           Road Mobility
+          </span>
+          <span data-out="Road Mobility">
+           0.20
+          </span>
+          <input aria-label="Road Mobility weight" data-key="Road Mobility" id="indicatorWeight5" max="1" min="0" step="0.01" type="range" value="0.20"/>
+         </label>
+         <label class="weight-row" for="indicatorWeight6">
+          <span class="weight-name">
+           Fire Hydrants
+          </span>
+          <span data-out="Fire Hydrants">
+           0.15
+          </span>
+          <input aria-label="Fire Hydrants weight" data-key="Fire Hydrants" id="indicatorWeight6" max="1" min="0" step="0.01" type="range" value="0.15"/>
+         </label>
+        </div>
+       </section>
+       <details class="baseline-details">
+        <summary>
+         Baseline comparison
+        </summary>
+        <div id="deltaPanel">
+         <div class="delta-actions">
+          <button id="btnSetBaseline" type="button">
+           Save baseline
+          </button>
+          <button disabled="" id="btnResetBaseline" type="button">
+           Restore
+          </button>
+          <button disabled="" id="btnClearBaseline" type="button">
+           Clear
+          </button>
+          <span id="baselineStatus">
+           Baseline: not set
+          </span>
+         </div>
+         <div id="changeSummary">
+         </div>
+         <div id="deltaChartWrap">
+          <canvas id="chart_delta_weights">
+          </canvas>
+         </div>
+        </div>
+       </details>
+      </div>
+     </div>
+    </details>
+    <details class="ui-group legend-group" open="">
+     <summary>
+      <span class="section-title">
+       Map legend
+      </span>
+     </summary>
+     <div class="ui-legend" id="legend">
+      <div id="raster-legend">
+       <strong aria-live="polite" id="legend-title">
+        No raster selected
+       </strong>
+       <div hidden="" id="raster-scale">
+        <div aria-hidden="true" class="legend-gradient">
+        </div>
+        <div class="legend-scale">
+         <span id="legend-min">
+          0 · Lower
+         </span>
+         <span id="legend-max">
+          1 · Higher
+         </span>
+        </div>
+       </div>
+       <fieldset hidden="" id="raster-display-controls">
+        <div class="opacity-heading">
+         <label for="rasterOpacity">
+          Raster opacity
+         </label>
+         <output for="rasterOpacity" id="rasterOpacityValue">
+          100%
+         </output>
+        </div>
+        <input disabled="" id="rasterOpacity" max="100" min="0" step="5" type="range" value="100"/>
+       </fieldset>
+      </div>
+      <div id="vector-legend" style="margin-top:14px">
+       <strong>
+        Fire Stations
+       </strong>
+       <div>
+        <span style="display:inline-block;width:14px;height:14px;background:#ffffff;border:1px solid #111;margin-right:6px">
+        </span>
+        Existing
+       </div>
+       <div>
+        <span style="display:inline-block;width:14px;height:14px;background:#1e90ff;border:1px solid #111;margin-right:6px">
+        </span>
+        Committed
+       </div>
+       <div>
+        <span style="display:inline-block;width:14px;height:14px;background:#2ecc71;border:1px solid #111;margin-right:6px">
+        </span>
+        Planned
+       </div>
+       <div id="coverage-legend" style="margin-top:12px; display:none">
+        <strong>
+         Drive Time (minutes)
+        </strong>
+        <div>
+         <span style="display:inline-block;width:14px;height:14px;background:#006d6f;margin-right:6px">
+         </span>
+         0-4
+        </div>
+        <div>
+         <span style="display:inline-block;width:14px;height:14px;background:#2aa198;margin-right:6px">
+         </span>
+         4-6
+        </div>
+        <div>
+         <span style="display:inline-block;width:14px;height:14px;background:#b2dfdb;margin-right:6px">
+         </span>
+         6 - 8
+        </div>
+       </div>
+      </div>
+     </div>
+    </details>
    </div>
-  </details>
-  <label class="hide-all-control">
-   <input id="chkHideLayers" type="checkbox"/>
-   Hide all layers
-  </label>
- </div>
-</div>
-
-
-        <script src="app.js?v=20261108-preserve-colors"></script>
-
-</body>
+  </div>
+  <script src="app.js?v=20261108-final">
+  </script>
+ </body>
 </html>
-
