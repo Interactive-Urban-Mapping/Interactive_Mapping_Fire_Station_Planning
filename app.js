@@ -3,12 +3,14 @@
 
     let stationsLayer = null;
     let cityBoundaryLayer = null;
-    let coverageLayers = {};
+    const coverageLayers = {};
+    const coverageLayerRequests = new Map();
+    let coverageSelectionVersion = 0;
     let activeCoverageKey = null;
     let activeRaster = null;
     let compositeMethod = "Manual";
     let baselineMethod = "Manual";
-    let rasterOpacity = null; // Preserve each layer's default until the user adjusts it.
+    let rasterOpacity = null;
 
     const map = L.map("map", {
         minZoom: 9,
@@ -120,7 +122,8 @@
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#039;");
     }
-    let WEIGHTS_IDX = { CRITIC: new Map(), RF: new Map(), XGB: new Map() };
+    let modelWeightsReady = false;
+    const WEIGHTS_IDX = { CRITIC: new Map(), RF: new Map(), XGB: new Map() };
 
     function buildWeightsIndexExact(rawObj) {
         const m = new Map();
@@ -135,23 +138,31 @@
     }
 
     async function loadWeights() {
-        const [c, r, x] = await Promise.all([
-            fetch("./data/weights_critic.json" + cacheBuster).then(res => res.json()),
-            fetch("./data/weights_rf.json" + cacheBuster).then(res => res.json()),
-            fetch("./data/weights_xgb.json" + cacheBuster).then(res => res.json())
-        ]);
+        const [c, r, x] = await Promise.all(["critic", "rf", "xgb"].map(async method => {
+            const response = await fetch(`./data/weights_${method}.json${cacheBuster}`);
+            if (!response.ok) throw new Error(`HTTP ${response.status} while loading ${method} weights`);
+            return response.json();
+        }));
 
         WEIGHTS_IDX.CRITIC = buildWeightsIndexExact(c);
         WEIGHTS_IDX.RF = buildWeightsIndexExact(r);
         WEIGHTS_IDX.XGB = buildWeightsIndexExact(x);
 
-        console.log("Weights loaded:", {
-            CRITIC: WEIGHTS_IDX.CRITIC.size,
-            RF: WEIGHTS_IDX.RF.size,
-            XGB: WEIGHTS_IDX.XGB.size
+        modelWeightsReady = true;
+        ["btnCRITIC", "btnRF", "btnXGB"].forEach(id => {
+            const button = document.getElementById(id);
+            button.disabled = false;
+            button.removeAttribute("title");
         });
     }
-    loadWeights().catch(err => console.error("Failed to load weights JSON:", err));
+    loadWeights().catch(err => {
+        console.error("Failed to load weights JSON:", err);
+        ["btnCRITIC", "btnRF", "btnXGB"].forEach(id => {
+            const button = document.getElementById(id);
+            button.disabled = true;
+            button.title = "Model weights unavailable. Reload to try again.";
+        });
+    });
 
     const CHART_DATA_PATH = "./data/chart_data/";
     let DRIVE_TIME_DATA = {};
@@ -226,7 +237,6 @@
     const chartNumber = new Intl.NumberFormat("en-CA", { maximumFractionDigits: 2 });
     const reduceChartMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    // Label the existing values directly so comparisons don't depend on hover.
     const coverageValueLabels = {
         id: "coverageValueLabels",
         afterDatasetsDraw(chart) {
@@ -705,9 +715,6 @@
 
     const CompositeLayer = L.GridLayer.extend({
         onAdd(map) {
-            // Preserve the original rendered surface. Switching source zooms would
-            // recompute each tile's percentile stretch and change its colors.
-            // Capture the resolution once, including when the layer is re-enabled.
             if (this._referenceZoom === undefined) {
                 this._referenceZoom = Math.max(9, Math.min(16, Math.round(map.getZoom())));
             }
@@ -868,7 +875,6 @@
     el("rasterOpacity").addEventListener("input", event => {
         if (!activeRaster) return;
         rasterOpacity = Math.max(0, Math.min(1, Number(event.target.value) / 100));
-        // Leaflet adjusts only the layer's transparency, without recomputing pixels.
         activeRasterLayer()?.setOpacity(rasterOpacity);
         updateRasterLegend();
     });
@@ -900,29 +906,18 @@
         return true;
     }
 
-    function setAllSlidersZero() {
-        document.querySelectorAll('#weights input[type="range"]').forEach(r => {
-            r.value = r.min ?? "0";
-            const out = document.querySelector(`span[data-out="${r.dataset.key}"]`);
-            if (out) out.textContent = "0.00";
-        });
-    }
 
     function getSelectedModelLayers() {
         return [...document.querySelectorAll('.modelLayer:checked')].map(n => n.value);
     }
 
     function applyModelComposite(method) {
+        if (!modelWeightsReady) return;
 
         const selected = getSelectedModelLayers();
 
         if (selected.length < 2) {
             console.warn("Select at least 2 layers.");
-            setAllSlidersZero();
-            compositeMethod = "Manual";
-            updateRasterLegend();
-            compositeLayer.redraw();
-            updateLiveChangeUI();
             return;
         }
 
@@ -930,11 +925,6 @@
 
         if (!w) {
             console.warn("No weights found for subset:", canonicalSubsetKey(selected), "method:", method);
-            setAllSlidersZero();
-            compositeMethod = "Manual";
-            updateRasterLegend();
-            compositeLayer.redraw();
-            updateLiveChangeUI();
             return;
         }
 
@@ -944,6 +934,7 @@
         });
         compositeMethod = method;
         updateRasterLegend();
+        updateLiveChangeUI();
 
         if (map.hasLayer(compositeLayer)) compositeLayer.redraw();
 
@@ -1050,11 +1041,12 @@
 
     function loadServiceAreaLayer(key) {
         if (coverageLayers[key]) return Promise.resolve(coverageLayers[key]);
+        if (coverageLayerRequests.has(key)) return coverageLayerRequests.get(key);
 
         const config = SERVICE_AREA_CONFIG[key];
         if (!config) return Promise.reject(new Error(`Unknown service area key: ${key}`));
 
-        return fetch(config.url + "?v=" + Date.now())
+        const request = fetch(config.url + "?v=" + Date.now())
             .then((r) => {
                 if (!r.ok) throw new Error(`HTTP ${r.status} while loading ${config.label} service area`);
                 return r.text();
@@ -1070,7 +1062,10 @@
                     style: serviceAreaStyle
                 });
                 return coverageLayers[key];
-            });
+            })
+            .finally(() => coverageLayerRequests.delete(key));
+        coverageLayerRequests.set(key, request);
+        return request;
     }
 
     const legend = el("coverage-legend");
@@ -1084,6 +1079,7 @@
     let selectedCoverageRange = "ALL";
 
     function removeActiveServiceArea() {
+        coverageSelectionVersion++;
         if (!activeCoverageKey) return;
         const activeLayer = coverageLayers[activeCoverageKey];
         if (activeLayer && map.hasLayer(activeLayer)) map.removeLayer(activeLayer);
@@ -1103,13 +1099,14 @@
     function applyServiceAreaSelection(key) {
         removeActiveServiceArea();
         activeCoverageKey = key;
+        const selectionVersion = coverageSelectionVersion;
 
         if (legend) legend.style.display = "block";
         if (el("coverageFilter")) el("coverageFilter").style.display = "grid";
 
         loadServiceAreaLayer(key)
             .then((layer) => {
-                if (activeCoverageKey !== key) return;
+                if (activeCoverageKey !== key || selectionVersion !== coverageSelectionVersion) return;
                 layer.addTo(map);
                 updateCoverageFilter();
                 enforceStationZOrder();
