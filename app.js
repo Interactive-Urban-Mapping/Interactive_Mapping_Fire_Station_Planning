@@ -1,6 +1,35 @@
 ﻿window.addEventListener("load", () => {
     if (window.Chart) Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
 
+    const statuses = new Map();
+    function showStatus(key, message, retry) {
+        if (message) statuses.set(key, { message, retry }); else statuses.delete(key);
+        const box = document.getElementById("appStatus");
+        box.replaceChildren();
+        box.hidden = !statuses.size;
+        statuses.forEach(({ message, retry }) => {
+            const row = document.createElement("div");
+            row.textContent = message;
+            if (retry) {
+                const button = document.createElement("button");
+                button.type = "button"; button.textContent = "Retry";
+                button.addEventListener("click", retry);
+                row.append(" ", button);
+            }
+            box.append(row);
+        });
+    }
+    async function fetchText(url) {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.text();
+    }
+    async function fetchGeoJson(url, label) {
+        const text = await fetchText(url);
+        if (!text.trim()) throw new Error(`${label} GeoJSON is empty`);
+        if (text.trim().startsWith("<")) throw new Error("HTML returned instead of GeoJSON");
+        return JSON.parse(text);
+    }
     let stationsLayer = null;
     let cityBoundaryLayer = null;
     const coverageLayers = {};
@@ -10,6 +39,9 @@
     let activeRaster = null;
     let compositeMethod = "Manual";
     let baselineMethod = "Manual";
+    let baselineSelection = null;
+    let baselineRawWeights = null;
+    const rawWeights = {};
     let rasterOpacity = null;
 
     const map = L.map("map", {
@@ -107,7 +139,7 @@
         "Land Use Risk",
         "Road Mobility",
         "Fire Hydrants"
-       
+
     ];
 
     function canonicalSubsetKey(names) {
@@ -133,11 +165,12 @@
     }
 
     function getWeightsForSelection(method, selected) {
-        const key = canonicalSubsetKey(selected); 
+        const key = canonicalSubsetKey(selected);
         return WEIGHTS_IDX?.[method]?.get(key) || null;
     }
 
     async function loadWeights() {
+        showStatus("weights", "Loading model weights…");
         const [c, r, x] = await Promise.all(["critic", "rf", "xgb"].map(async method => {
             const response = await fetch(`./data/weights_${method}.json${cacheBuster}`);
             if (!response.ok) throw new Error(`HTTP ${response.status} while loading ${method} weights`);
@@ -149,20 +182,24 @@
         WEIGHTS_IDX.XGB = buildWeightsIndexExact(x);
 
         modelWeightsReady = true;
+        showStatus("weights", "");
         ["btnCRITIC", "btnRF", "btnXGB"].forEach(id => {
             const button = document.getElementById(id);
             button.disabled = false;
             button.removeAttribute("title");
         });
     }
-    loadWeights().catch(err => {
+    function handleWeightsError(err) {
+        showStatus("weights", "Model weights could not be loaded.", () => loadWeights().catch(handleWeightsError));
         console.error("Failed to load weights JSON:", err);
         ["btnCRITIC", "btnRF", "btnXGB"].forEach(id => {
             const button = document.getElementById(id);
             button.disabled = true;
-            button.title = "Model weights unavailable. Reload to try again.";
+            button.title = "Model weights unavailable. Use Retry above.";
         });
-    });
+    }
+
+    loadWeights().catch(handleWeightsError);
 
     const CHART_DATA_PATH = "./data/chart_data/";
     let DRIVE_TIME_DATA = {};
@@ -185,16 +222,17 @@
 
     function chartValues(row) {
         return [
-            Number(row.minutes_0_4),
-            Number(row.minutes_4_6),
-            Number(row.minutes_6_plus)
+            row.minutes_0_4?.trim() ? Number(row.minutes_0_4) : NaN,
+            row.minutes_4_6?.trim() ? Number(row.minutes_4_6) : NaN,
+            row.minutes_6_plus?.trim() ? Number(row.minutes_6_plus) : NaN
         ];
     }
 
     async function loadChartData() {
+        chartDataLoadFailed = false;
         const [driveCsv, highCsv] = await Promise.all([
-            fetch(CHART_DATA_PATH + "drive_time_coverage.csv" + cacheBuster).then(res => res.text()),
-            fetch(CHART_DATA_PATH + "high_very_high.csv" + cacheBuster).then(res => res.text())
+            fetchText(CHART_DATA_PATH + "drive_time_coverage.csv" + cacheBuster),
+            fetchText(CHART_DATA_PATH + "high_very_high.csv" + cacheBuster)
         ]);
 
         const driveData = {};
@@ -212,16 +250,32 @@
             highData[method][row.scenario][row.priority_class] = chartValues(row);
         });
 
+        const chartKeys = ["COVERAGE", "Incidents Heatmap", "Incidents Response Time", "Population Density", "CRITIC", "RF", "XGB"];
+        const valid = values => Array.isArray(values) && values.length === 3 && values.every(v => Number.isFinite(v) && v >= 0 && v <= 100);
+        if (!chartKeys.every(key => ["21_24", "24_27"].every(s => valid(driveData[key]?.[s]))) ||
+            !["CRITIC", "RF", "XGB"].every(key => ["21_24", "24_27"].every(s =>
+                ["High", "VeryHigh"].every(c => valid(highData[key]?.[s]?.[c]))))) {
+            throw new Error("Chart CSV is incomplete or invalid");
+        }
         DRIVE_TIME_DATA = driveData;
         HIGH_VERYHIGH_DATA = highData;
     }
 
-    const chartDataReady = loadChartData().catch(err => {
+    function handleChartError(err) {
         console.error("Failed to load chart CSV data:", err);
         chartDataLoadFailed = true;
         DRIVE_TIME_DATA = {};
         HIGH_VERYHIGH_DATA = {};
-    });
+        showStatus("charts", "Chart data could not be loaded.", () => {
+            showStatus("charts", "Loading chart data…");
+            chartDataReady = loadChartData().then(() => {
+                showStatus("charts", "");
+                renderDashboardChart(document.querySelector('input[name="chartChoice"]:checked')?.value);
+            }).catch(handleChartError);
+        });
+        if (document.querySelector('input[name="chartChoice"]:checked')) document.getElementById("chartEmpty").textContent = "Chart data unavailable. Use Retry above.";
+    }
+    let chartDataReady = loadChartData().catch(handleChartError);
 
     let driveChartCoverage = null;
     let driveChartRaster = null;
@@ -232,7 +286,6 @@
 
     const el = (id) => document.getElementById(id);
     const setShow = (id, show) => { const n = el(id); if (!n) return; n.style.display = show ? "block" : "none"; };
-
 
     const chartNumber = new Intl.NumberFormat("en-CA", { maximumFractionDigits: 2 });
     const reduceChartMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -358,10 +411,8 @@
         ]);
     }
 
-
     const rasterTitle = (k) =>
         k === "CRITIC" ? "CRITIC" : k === "RF" ? "Random Forest" : k === "XGB" ? "XGBoost" : k;
-
 
     function clearChartPanel() {
         if (driveChartCoverage) driveChartCoverage.destroy();
@@ -377,6 +428,7 @@
         setShow("chartWrap_2124", false);
         setShow("chartWrap_2427", false);
         setShow("chartEmpty", true);
+        el("chartEmpty").textContent = "No analysis selected.";
     }
 
     function renderDashboardChart(key) {
@@ -384,6 +436,7 @@
         if (!key) return;
 
         if (!DRIVE_TIME_DATA[key]) {
+            el("chartEmpty").textContent = chartDataLoadFailed ? "Chart data unavailable. Use Retry above." : "Loading analysis…";
             if (!chartDataLoadFailed) {
                 chartDataReady.then(() => {
                     if (document.querySelector('input[name="chartChoice"]:checked')?.value === key && DRIVE_TIME_DATA[key]) renderDashboardChart(key);
@@ -442,14 +495,15 @@
         document.querySelectorAll('input[name="chartChoice"]').forEach(r => { r.checked = false; });
         clearChartPanel();
     });
-    function setSlidersFromWeights01(w01, method = "Manual") {
-        if (!w01) return;
+    function applyWeights(weights, method = "Manual") {
+        if (!weights) return;
         compositeMethod = method;
 
-     
         CANON_ORDER.forEach((key) => {
-            setSliderByKey(key, w01[key] ?? 0);
+            rawWeights[key] = Math.max(0, Math.min(1, Number(weights[key]) || 0));
         });
+        syncWeightControls();
+        showStatus("model", "");
         updateRasterLegend();
 
         if (map.hasLayer(compositeLayer)) compositeLayer.redraw();
@@ -457,16 +511,27 @@
     }
 
     function getNormalizedWeights01() {
-        const raw = {};
-        document.querySelectorAll('#weights input[type="range"]').forEach((r) => {
-            raw[r.dataset.key] = parseFloat(r.value);
+        const selected = new Set(getSelectedIndicators());
+        const sum = CANON_ORDER.reduce((total, key) => total + (selected.has(key) ? rawWeights[key] || 0 : 0), 0);
+        return Object.fromEntries(CANON_ORDER.map(key => [key,
+            sum > 0 && selected.has(key) ? (rawWeights[key] || 0) / sum : 0]));
+    }
+
+    function syncWeightControls() {
+        const selected = new Set(getSelectedIndicators());
+        const normalized = getNormalizedWeights01();
+        document.querySelectorAll('#weights input[type="range"]').forEach(slider => {
+            const key = slider.dataset.key;
+            const number = document.querySelector(`input.weight-number[data-key="${key}"]`);
+            slider.value = String(rawWeights[key] || 0);
+            slider.disabled = !selected.has(key);
+            if (number) {
+                number.value = String(rawWeights[key] || 0);
+                number.disabled = !selected.has(key);
+            }
+            document.querySelector(`span[data-out="${key}"]`).textContent = prettyPct(normalized[key]);
+            slider.setAttribute("aria-valuetext", `${prettyPct(normalized[key])} normalized weight`);
         });
-
-        const sum = Object.values(raw).reduce((a, b) => a + b, 0) || 1;
-
-        const w01 = {};
-        for (const k in raw) w01[k] = raw[k] / sum;
-        return w01;
     }
 
     function getSelectedIndicators() {
@@ -479,6 +544,8 @@
 
     function setBaselineToCurrent() {
         baselineWeights01 = getNormalizedWeights01();
+        baselineRawWeights = { ...rawWeights };
+        baselineSelection = getSelectedIndicators();
         baselineMethod = compositeMethod;
 
         const status = el("baselineStatus");
@@ -493,7 +560,8 @@
 
     function resetToBaseline() {
         if (!baselineWeights01) return;
-        setSlidersFromWeights01(baselineWeights01, baselineMethod);
+        document.querySelectorAll(".modelLayer").forEach(input => { input.checked = baselineSelection.includes(input.value); });
+        applyWeights(baselineRawWeights, baselineMethod);
     }
 
     function clearBaseline() {
@@ -553,7 +621,7 @@
                 }</div>
                 <div>Biggest decreases vs baseline: ${down.map(d => `<span><strong>${escapeHtml(d.name)}</strong> (${(d.delta >= 0 ? "+" : "") + (100 * d.delta).toFixed(1)}%)</span>`).join(" | ")
                 }</div>
-            ` : `<div style="opacity:0.85;">Tip: click <strong>Set current as baseline</strong> to enable delta comparisons.</div>`}
+            ` : `<div style="opacity:0.85;">Tip: click <strong>Save baseline</strong> to enable delta comparisons.</div>`}
         </div>
     `;
     }
@@ -632,14 +700,14 @@
                 deltaWeightsChart = null;
             }
 
-            setShow("deltaChartWrap", false);   
+            setShow("deltaChartWrap", false);
             return;
         }
 
         const deltaArr = computeDeltas(current01, baselineWeights01);
         renderChangeSummary(deltaArr);
         renderDeltaWeightsChart(deltaArr);
-        setShow("deltaChartWrap", true);  
+        setShow("deltaChartWrap", true);
     }, 120);
     const SafeTileLayer = L.TileLayer.extend({
         initialize(root, options) {
@@ -659,7 +727,7 @@
         "Number of Trucks Dispatched to Incidents": new SafeTileLayer("./data/Trucks", { pane: "rasters" }),
         "Incidents Response Time": new SafeTileLayer("./data/Response_Time", { pane: "rasters" }),
         "Land Use Risk": new SafeTileLayer("./data/Land_Use", { pane: "rasters" })
-        
+
     };
     const valueSources = {
         "Incidents Heatmap": new SafeTileLayer("./data/Incidents_Heatmap_VAL", { pane: "rasters" }),
@@ -670,23 +738,13 @@
         "Land Use Risk": new SafeTileLayer("./data/Land_Use_VAL", { pane: "rasters" }),
         "Road Mobility": new SafeTileLayer("./data/Road_Mobility_VAL", { pane: "rasters" })
     };
-    const colorSources = {
-        "Incidents Heatmap": layers["Incidents Heatmap"],
-        "Incidents Response Time": layers["Incidents Response Time"],
-        "Number of Trucks Dispatched to Incidents": layers["Number of Trucks Dispatched to Incidents"],
-        "Population Density": layers["Population Density"],
-        "Land Use Risk": layers["Land Use Risk"],
-        "Road Mobility": layers["Road Mobility"],
-        "Fire Hydrants": layers["Fire Hydrants"]     
-    };
-
     function buildModelLayerList() {
         const wrap = el("modelLayerList");
         if (!wrap) return;
 
         wrap.innerHTML = "";
 
-        Object.keys(colorSources).forEach(name => {
+        CANON_ORDER.forEach(name => {
             const row = document.createElement("label");
             row.style.display = "block";
 
@@ -694,6 +752,10 @@
             row.innerHTML = `<input class="modelLayer" type="checkbox" value="${name}" ${checked}> ${name}`;
             wrap.appendChild(row);
             row.querySelector("input")?.addEventListener("change", () => {
+                compositeMethod = "Manual";
+                syncWeightControls();
+                updateRasterLegend();
+                redrawComposite();
                 updateLiveChangeUI();
             });
         });
@@ -713,6 +775,8 @@
         return [R, G, B];
     }
 
+    document.querySelector(".legend-gradient").style.background = "linear-gradient(to right, " +
+        Array.from({ length: 21 }, (_, i) => `rgb(${turbo(i / 20).join(",")}) ${i * 5}%`).join(", ") + ")";
     const CompositeLayer = L.GridLayer.extend({
         onAdd(map) {
             if (this._referenceZoom === undefined) {
@@ -729,54 +793,34 @@
             tile.height = size.y;
 
             const ctx = tile.getContext("2d");
-            const keys = Object.keys(valueSources);
-
-            Promise.all(
-                keys.map(
-                    (k) =>
-                        new Promise((res) => {
-                            const img = new Image();
-                            img.crossOrigin = "anonymous";
-                            img.onload = () => res({ k, img });
-                            img.onerror = () => res({ k, img: null });
-                            img.src = valueSources[k].getTileUrl(coords);
-                        })
-                )
-            ).then((parts) => {
+            // Capture one consistent state for the entire asynchronous tile calculation.
+            const weights = getNormalizedWeights01();
+            const useManualContrast = compositeMethod === "Manual";
+            const keys = Object.keys(valueSources).filter(key => weights[key] > 0);
+            Promise.all(keys.map(k => new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                img.onload = () => resolve({ k, img });
+                img.onerror = () => reject(new Error("Composite source tile unavailable"));
+                img.src = valueSources[k].getTileUrl(coords);
+            }))).then(parts => {
                 const off = document.createElement("canvas");
                 off.width = size.x;
                 off.height = size.y;
-                const octx = off.getContext("2d");
-                const raw = {};
-                document.querySelectorAll('#weights input[type="range"]').forEach((r) => {
-                    raw[r.dataset.key] = parseFloat(r.value);
-                });
-
-                const sum = Object.values(raw).reduce((a, b) => a + b, 0) || 1;
-                const weights = {};
-                for (const k in raw) weights[k] = raw[k] / sum;
-                document.querySelectorAll('#weights input[type="range"]').forEach((r) => {
-                    const out = document.querySelector(`span[data-out="${r.dataset.key}"]`);
-                    if (out) out.textContent = weights[r.dataset.key].toFixed(2);
-                });
-
+                const octx = off.getContext("2d", { willReadFrequently: true });
                 const acc = new Float32Array(size.x * size.y);
-
+                const valid = new Uint8Array(acc.length).fill(parts.length ? 1 : 0);
                 parts.forEach(({ k, img }) => {
-                    const w = weights[k] || 0;
-                    if (!img || w === 0) return;
-
                     octx.clearRect(0, 0, size.x, size.y);
                     octx.drawImage(img, 0, 0, size.x, size.y);
-                    const d = octx.getImageData(0, 0, size.x, size.y).data;
-
+                    const pixels = octx.getImageData(0, 0, size.x, size.y).data;
                     for (let i = 0, p = 0; i < acc.length; i++, p += 4) {
-                        if (d[p + 3] === 0) continue;
-                        acc[i] += (d[p] / 255) * w; 
+                        if (pixels[p + 3] === 0) valid[i] = 0;
+                        acc[i] += (pixels[p] / 255) * weights[k];
                     }
                 });
-
-                
+                let P02 = 0, P98 = 1;
+                if (useManualContrast) {
                 {
                     const sm = new Float32Array(acc.length);
 
@@ -793,7 +837,6 @@
                         }
                     }
 
-                    
                     for (let x = 0; x < size.x; x++) {
                         sm[x] = acc[x];
                         sm[(size.y - 1) * size.x + x] = acc[(size.y - 1) * size.x + x];
@@ -814,34 +857,30 @@
                 }
                 sample.sort((a, b) => a - b);
 
-                let P02 = 0, P98 = 1;
                 if (sample.length > 50) {
                     P02 = sample[Math.floor(0.02 * (sample.length - 1))];
                     P98 = sample[Math.floor(0.98 * (sample.length - 1))];
                     if (P98 <= P02) { P02 = sample[0]; P98 = sample[sample.length - 1]; }
                 }
 
-                const gamma = 2; 
+                    if (P98 <= P02) { P02 = 0; P98 = 1; }
+                }
+                // Manual display retains the original local contrast; models use a fixed scale.
                 const outImg = ctx.createImageData(size.x, size.y);
-
                 for (let i = 0, p = 0; i < acc.length; i++, p += 4) {
-                    let t = acc[i];
-
-                    t = (t - P02) / (P98 - P02);
-                    t = Math.max(0, Math.min(1, t));
-
-                    t = Math.pow(t, gamma);
-
-                    const [r, g, b] = turbo(t);
+                    const value = useManualContrast
+                        ? Math.pow(Math.max(0, Math.min(1, (acc[i] - P02) / (P98 - P02))), 2)
+                        : acc[i];
+                    const [r, g, b] = turbo(value);
                     outImg.data[p] = r;
                     outImg.data[p + 1] = g;
                     outImg.data[p + 2] = b;
-                    outImg.data[p + 3] = (t > 0 ? 255 : 0);
+                    outImg.data[p + 3] = valid[i] ? 255 : 0;
                 }
 
                 ctx.putImageData(outImg, 0, 0);
                 done(null, tile);
-            });
+            }).catch(error => { done(error, tile); });
 
             return tile;
         }
@@ -862,8 +901,10 @@
         el("raster-scale").hidden = !active || !hasWeights;
         el("raster-display-controls").hidden = !active;
         el("rasterOpacity").disabled = !active;
-        el("legend-min").textContent = isComposite ? "Lower" : "0 · Lower";
-        el("legend-max").textContent = isComposite ? "Higher" : "1 · Higher";
+        const manualContrast = isComposite && compositeMethod === "Manual";
+        el("legend-min").textContent = manualContrast ? "Lower" : "0 · Lower";
+        el("legend-max").textContent = manualContrast ? "Higher" : "1 · Higher";
+        el("raster-scale").title = manualContrast ? "Local contrast enhanced for manual exploration" : "Fixed normalized scale from 0 to 1";
         el("btnHideIndicatorRaster").disabled = !active || isComposite;
         el("btnHideCompositeRaster").disabled = !isComposite;
         const percent = Math.round((rasterOpacity ?? (isComposite ? 0.9 : 1)) * 100);
@@ -883,60 +924,47 @@
     const redrawComposite = debounce(() => {
         if (map.hasLayer(compositeLayer)) compositeLayer.redraw();
     }, 140);
-    document.querySelectorAll('#weights input[type="range"]').forEach((sl) =>
-        sl.addEventListener("input", () => {
+    document.querySelectorAll('#weights input[type="range"]').forEach(slider => {
+        const key = slider.dataset.key;
+        rawWeights[key] = Number(slider.value);
+        const number = document.createElement("input");
+        number.type = "number";
+        number.className = "weight-number";
+        number.dataset.key = key;
+        number.min = "0"; number.max = "1"; number.step = "any";
+        number.setAttribute("aria-label", `${key} raw weight, between 0 and 1`);
+        slider.after(number);
+        const update = input => {
+            if (!input.checkValidity() || input.value === "" || !Number.isFinite(Number(input.value))) return;
+            rawWeights[key] = Number(input.value);
             compositeMethod = "Manual";
+            syncWeightControls();
             updateRasterLegend();
             redrawComposite();
             updateLiveChangeUI();
-        })
-    );
-    function setSliderByKey(key, w01) {
-        const slider = document.querySelector(`#weights input[type="range"][data-key="${key}"]`);
-        if (!slider) return false;
-
-        const min = parseFloat(slider.min || "0");
-        const max = parseFloat(slider.max || "1");
-        const v = min + (max - min) * w01; 
-        slider.value = String(v);
-
-        const out = document.querySelector(`span[data-out="${key}"]`);
-        if (out) out.textContent = Number(w01).toFixed(2);
-
-        return true;
-    }
-
-
-    function getSelectedModelLayers() {
-        return [...document.querySelectorAll('.modelLayer:checked')].map(n => n.value);
-    }
-
+        };
+        slider.addEventListener("input", () => update(slider));
+        number.addEventListener("change", () => update(number));
+    });
+    syncWeightControls();
     function applyModelComposite(method) {
         if (!modelWeightsReady) return;
 
-        const selected = getSelectedModelLayers();
+        const selected = getSelectedIndicators();
 
         if (selected.length < 2) {
-            console.warn("Select at least 2 layers.");
+            showStatus("model", "Select at least two indicators to apply model weights.");
             return;
         }
 
         const w = getWeightsForSelection(method, selected);
 
         if (!w) {
-            console.warn("No weights found for subset:", canonicalSubsetKey(selected), "method:", method);
+            showStatus("model", "No model weights are available for this selection.");
             return;
         }
 
-        
-        Object.keys(colorSources).forEach(layerName => {
-            setSliderByKey(layerName, w[layerName] ?? 0);
-        });
-        compositeMethod = method;
-        updateRasterLegend();
-        updateLiveChangeUI();
-
-        if (map.hasLayer(compositeLayer)) compositeLayer.redraw();
+        applyWeights(w, method);
 
     }
     el("btnCRITIC")?.addEventListener("click", () => applyModelComposite("CRITIC"));
@@ -947,6 +975,7 @@
     el("btnClearBaseline")?.addEventListener("click", clearBaseline);
 
     function clearRasters() {
+        showStatus("model", "");
         Object.values(layers).forEach(l => map.removeLayer(l));
         if (map.hasLayer(compositeLayer)) map.removeLayer(compositeLayer);
         activeRaster = null;
@@ -957,7 +986,6 @@
     function applyRasterSelection(name) {
         clearRasters();
         activeRaster = name;
-
 
         if (activeRaster === "__COMPOSITE__") {
             setShow("weights", true);
@@ -1046,16 +1074,8 @@
         const config = SERVICE_AREA_CONFIG[key];
         if (!config) return Promise.reject(new Error(`Unknown service area key: ${key}`));
 
-        const request = fetch(config.url + "?v=" + Date.now())
-            .then((r) => {
-                if (!r.ok) throw new Error(`HTTP ${r.status} while loading ${config.label} service area`);
-                return r.text();
-            })
-            .then((t) => {
-                if (!t || t.trim().length === 0) throw new Error(`${config.label} service area GeoJSON is empty`);
-                if (t.trim().startsWith("<")) throw new Error("HTML returned instead of GeoJSON");
-                return sortCoverageFeatures(JSON.parse(t));
-            })
+        const request = fetchGeoJson(config.url + "?v=" + Date.now(), config.label)
+            .then(sortCoverageFeatures)
             .then((data) => {
                 coverageLayers[key] = L.geoJSON(data, {
                     pane: "coverage",
@@ -1104,17 +1124,24 @@
         if (legend) legend.style.display = "block";
         if (el("coverageFilter")) el("coverageFilter").style.display = "grid";
 
+        showStatus("coverage", "Loading service coverage…");
         loadServiceAreaLayer(key)
             .then((layer) => {
                 if (activeCoverageKey !== key || selectionVersion !== coverageSelectionVersion) return;
+                showStatus("coverage", "");
                 layer.addTo(map);
                 updateCoverageFilter();
                 enforceStationZOrder();
             })
-            .catch((err) => console.error("Service area GeoJSON load failed:", err));
+            .catch(err => {
+                if (activeCoverageKey !== key || selectionVersion !== coverageSelectionVersion) return;
+                console.error("Service area GeoJSON load failed:", err);
+                showStatus("coverage", "Service coverage could not be loaded.", () => applyServiceAreaSelection(key));
+            });
     }
 
     function clearServiceAreaSelection() {
+        showStatus("coverage", "");
         removeActiveServiceArea();
         document.querySelectorAll('input[name="serviceAreaChoice"]').forEach((r) => { r.checked = false; });
         selectedCoverageRange = "ALL";
@@ -1125,10 +1152,7 @@
 
     el("btnClearServiceArea")?.addEventListener("click", clearServiceAreaSelection);
 
-    const flashingBlue = [];
-    const flashingGreen = [];
-
-    function makeStationIcon(color, opacity = 1) {
+    function makeStationIcon(color) {
         return L.divIcon({
             className: "",
             html: `
@@ -1142,7 +1166,7 @@
                 align-items: center;
                 justify-content: center;
                 box-shadow: 0 1px 4px rgba(0,0,0,0.35);
-                opacity: ${opacity};
+                opacity: 1;
                 font-size: 14px;
                 line-height: 1;
             ">
@@ -1155,22 +1179,12 @@
         });
     }
 
-    const defaultStationIcon = makeStationIcon("#ffffff", 1);
-    const blueOn = makeStationIcon("#1e90ff", 1);
-    const blueOff = makeStationIcon("#1e90ff", 0.25);
-    const greenOn = makeStationIcon("#2ecc71", 1);
-    const greenOff = makeStationIcon("#2ecc71", 0.25);
+    const defaultStationIcon = makeStationIcon("#ffffff");
+    const committedStationIcon = makeStationIcon("#1e90ff");
 
-    fetch("./data/Fire_Stations.geojson?v=" + Date.now())
-        .then((r) => {
-            if (!r.ok) throw new Error(`HTTP ${r.status} while loading stations geojson`);
-            return r.text();
-        })
-        .then((t) => {
-            if (!t || t.trim().length === 0) throw new Error("Stations geojson is empty");
-            if (t.trim().startsWith("<")) throw new Error("HTML returned instead of GeoJSON");
-            return JSON.parse(t);
-        })
+    const plannedStationIcon = makeStationIcon("#2ecc71");
+
+    fetchGeoJson("./data/Fire_Stations.geojson?v=" + Date.now(), "Stations")
         .then((d) => {
             stationsLayer = L.geoJSON(d, {
                 pane: "stations",
@@ -1182,8 +1196,8 @@
                     const address = props?.Address;
 
                     let icon = defaultStationIcon;
-                    if ([123, 124, 125].includes(id)) icon = blueOn;
-                    if ([126, 127, 128].includes(id)) icon = greenOn;
+                    if ([123, 124, 125].includes(id)) icon = committedStationIcon;
+                    if ([126, 127, 128].includes(id)) icon = plannedStationIcon;
 
                     const marker = L.marker(latlng, { icon, pane: "stations" });
 
@@ -1199,9 +1213,6 @@
                         autoPan: true
                     });
 
-                    if ([123, 124, 125].includes(id)) flashingBlue.push(marker);
-                    if ([126, 127, 128].includes(id)) flashingGreen.push(marker);
-
                     return marker;
                 }
             });
@@ -1212,7 +1223,7 @@
                 enforceStationZOrder();
             }
         })
-        .catch((err) => console.error("Fire Stations load failed:", err));
+        .catch(err => { console.error(err); showStatus("stations", "Stations could not be loaded. Reload to try again."); });
 
     const chkStations = el("chkStations");
     if (chkStations) {
@@ -1229,21 +1240,7 @@
         });
     }
 
-    setInterval(() => {
-        flashingBlue.forEach((m) => m.setIcon(m.options.icon === blueOn ? blueOff : blueOn));
-        flashingGreen.forEach((m) => m.setIcon(m.options.icon === greenOn ? greenOff : greenOn));
-    }, 2600);
-
-    fetch("./data/City_Boundary.geojson?v=" + Date.now())
-        .then((r) => {
-            if (!r.ok) throw new Error(`HTTP ${r.status} while loading city boundary geojson`);
-            return r.text();
-        })
-        .then((t) => {
-            if (!t || t.trim().length === 0) throw new Error("City boundary geojson is empty");
-            if (t.trim().startsWith("<")) throw new Error("HTML returned instead of GeoJSON");
-            return JSON.parse(t);
-        })
+    fetchGeoJson("./data/City_Boundary.geojson?v=" + Date.now(), "City boundary")
         .then((d) => {
             cityBoundaryLayer = L.geoJSON(d, {
                 pane: "boundary",
@@ -1258,7 +1255,7 @@
             const chk = el("chkCityBoundary");
             if (!chk || chk.checked) cityBoundaryLayer.addTo(map);
         })
-        .catch((err) => console.error("City Boundary load failed:", err));
+        .catch(err => { console.error(err); showStatus("boundary", "City boundary could not be loaded. Reload to try again."); });
     const chkCityBoundary = el("chkCityBoundary");
     if (chkCityBoundary) {
         chkCityBoundary.addEventListener("change", (e) => {
@@ -1266,7 +1263,7 @@
 
             if (e.target.checked) {
                 if (!map.hasLayer(cityBoundaryLayer)) cityBoundaryLayer.addTo(map);
-                enforceStationZOrder(); 
+                enforceStationZOrder();
             } else {
                 map.removeLayer(cityBoundaryLayer);
             }
@@ -1312,23 +1309,14 @@
         });
     }
     el("btnResetView")?.addEventListener("click", () => {
-
         map.setView([43.59, -79.64], 11);
-
-        document.querySelectorAll('input[name="r"]').forEach(r => {
-            r.checked = false;
-        });
-
-
-        clearRasters();
+        map.invalidateSize(true);
+    });
+    el("btnClearSelections").addEventListener("click", () => {
+        hideRasterSelection();
         clearServiceAreaSelection();
         document.querySelectorAll('input[name="chartChoice"]').forEach(r => { r.checked = false; });
         clearChartPanel();
-
-        setTimeout(() => {
-            map.invalidateSize(true);
-        }, 200);
-
     });
     el("btnInfo")?.addEventListener("click", () => {
         const popup = el("infoPopup");
@@ -1355,5 +1343,5 @@
             document.exitFullscreen();
         }
     });
-   
+
 });
